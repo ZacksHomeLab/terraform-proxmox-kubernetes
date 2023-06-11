@@ -36,3 +36,5 @@ credentials*
 
 # Terraform variables
 *.tfvars
+
+redo.sh

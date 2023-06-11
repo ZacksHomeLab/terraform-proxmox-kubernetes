@@ -1,5 +1,13 @@
 # terraform-proxmox-k3s
-Terraform module to install K3s in Proxmox.
+
+Deploying a Kubernetes cluster can be overwhelming. Documentation I found online skips through the setup process and just shows the finished product. This module does that as well, to a degree...BUT, you can add the necessary features granularly. This README will walk you through deploying different variations of Kubernetes clusters. If you know what you're doing, you may use the ***examples*** directory.
+
+# Getting Started
+
+This module utilizes my [Proxmox Cloudinit Module](https://github.com/ZacksHomeLab/terraform-proxmox-cloudinit-vm), which gives a lot of customization out-of-the-box for Virtual Machines.
+
+This module assumes you've followed the [Getting Started](https://github.com/ZacksHomeLab/terraform-proxmox-cloudinit-vm#getting-started) section of the above-mentioned module. You will need an **Ubuntu (preferably 22.04.x) Cloudinit Virtual Machine template** to use this module. 
+
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 ## Requirements
 
