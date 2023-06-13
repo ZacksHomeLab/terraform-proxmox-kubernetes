@@ -119,7 +119,7 @@ resource "tls_self_signed_cert" "kube_ca_cert" {
   }
 
   dns_names = [
-    "DNS:${local.cluster_name}"
+    local.cluster_name
   ]
 }
 
@@ -150,15 +150,15 @@ resource "tls_cert_request" "kube_api_server_csr" {
   }
 
   dns_names = [
-    "DNS:${local.control_plane_vm_name}",
-    "DNS:${local.cluster_name}",
-    "DNS:${local.cluster_name_and_namespace}",
-    "DNS:${local.cluster_namespace_fqdn}",
-    "DNS:${local.cluster_namespace_fqdn_and_domain}",
+    local.control_plane_vm_name,
+    local.cluster_name,
+    local.cluster_name_and_namespace,
+    local.cluster_namespace_fqdn,
+    local.cluster_namespace_fqdn_and_domain
   ]
   ip_addresses = [
-    "IP:${local.internal_control_plane_ip}",
-    "IP:${local.external_control_plane_ip}",
+    local.internal_control_plane_ip,
+    local.external_control_plane_ip
   ]
 }
 
@@ -266,7 +266,7 @@ resource "tls_self_signed_cert" "kube_front_proxy_ca_cert" {
   }
 
   dns_names = [
-    "DNS:${local.front_proxy_ca_name}"
+    local.front_proxy_ca_name
   ]
 }
 
@@ -294,7 +294,7 @@ resource "tls_cert_request" "kube_front_proxy_client_csr" {
 */
 resource "tls_locally_signed_cert" "front_proxy_client_cert" {
   cert_request_pem   = tls_cert_request.kube_front_proxy_client_csr.cert_request_pem
-  ca_private_key_pem = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
+  ca_private_key_pem = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
   ca_cert_pem        = tls_self_signed_cert.kube_front_proxy_ca_cert.cert_pem
 
   is_ca_certificate = false
