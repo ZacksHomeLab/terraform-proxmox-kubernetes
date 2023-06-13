@@ -1,7 +1,7 @@
 locals {
   create_certificates = var.generate_ca_certificates ? 1 : 0
 
-  certificate_files = [
+  certificate_files = var.generate_ca_certificates ? [
     {
       filename = "ca.key"
       content  = tls_private_key.kube_ca_priv_key.private_key_pem
@@ -16,7 +16,7 @@ locals {
     },
     {
       filename = "apiserver.crt"
-      content  = tls_self_signed_cert.kube_api_server_cert.cert_pem
+      content  = tls_locally_signed_cert.kube_api_server_cert.cert_pem
     },
     {
       filename = "apiserver-kubelet-client.key"
@@ -24,7 +24,7 @@ locals {
     },
     {
       filename = "apiserver-kubelet-client.crt"
-      content  = tls_self_signed_cert.kube_api_server_client_cert.cert_pem
+      content  = tls_locally_signed_cert.kube_api_server_client_cert.cert_pem
     },
     {
       filename = "sa.key"
@@ -32,7 +32,7 @@ locals {
     },
     {
       filename = "sa.pub"
-      content  = tls_public_key.sa_public_key.public_key_pem
+      content  = data.tls_public_key.sa_public_key.public_key_pem
     },
     {
       filename = "front-proxy-ca.key"
@@ -48,9 +48,9 @@ locals {
     },
     {
       filename = "front-proxy-client.crt"
-      content  = tls_self_signed_cert.front_proxy_client_cert.cert_pem
+      content  = tls_locally_signed_cert.front_proxy_client_cert.cert_pem
     },
-  ]
+  ] : []
 }
 
 /*
@@ -65,11 +65,10 @@ resource "tls_private_key" "kube_ca_priv_key" {
   CA Certificate: ca.crt
 */
 resource "tls_self_signed_cert" "kube_ca_cert" {
-  key_algorithm       = "RSA"
-  private_key_pem     = tls_private_key.kube_ca_priv_key.private_key_pem
-  is_ca_certificate   = true
-  validity_period_hrs = 87600
-  allowed_uses        = ["cert_signing", "crl_signing"]
+  private_key_pem       = tls_private_key.kube_ca_priv_key.private_key_pem
+  is_ca_certificate     = true
+  validity_period_hours = 87600
+  allowed_uses          = ["cert_signing", "crl_signing"]
   subject {
     common_name = "MyKubernetesCA"
   }
@@ -96,26 +95,27 @@ resource "tls_private_key" "kube_api_server_priv_key" {
       - (optional) other alt names
 */
 resource "tls_cert_request" "kube_api_server_csr" {
-  key_algorithm   = "RSA"
   private_key_pem = tls_private_key.kube_api_server_priv_key.private_key_pem
-  subject_alt_names = [
-    "IP:10.96.0.1",
+  dns_names = [
     "DNS:kubernetes.default.svc.zackshomelab.com",
     "DNS:ZHLControlPlane01",
-    "IP:192.168.2.126"
+  ]
+  ip_addresses = [
+    "IP:10.96.0.1",
+    "IP:192.168.2.126",
   ]
 }
 
 /*
   API Server - Server Certificate: apiserver.crt
 */
-resource "tls_self_signed_cert" "kube_api_server_cert" {
-  key_algorithm       = "RSA"
-  private_key_pem     = tls_private_key.kube_ca_priv_key.private_key_pem
-  certificate_request = tls_cert_request.kube_api_server_csr.cert_request_pem
-  validity_period_hrs = 87600
-  allowed_uses        = ["digital_signature", "key_encipherment", "server_auth"]
-  is_ca_certificate   = false
+resource "tls_locally_signed_cert" "kube_api_server_cert" {
+  cert_request_pem      = tls_cert_request.kube_api_server_csr.cert_request_pem
+  ca_private_key_pem    = tls_private_key.kube_ca_priv_key.private_key_pem
+  ca_cert_pem           = tls_self_signed_cert.kube_ca_cert.cert_pem
+  validity_period_hours = 87600
+  allowed_uses          = ["digital_signature", "key_encipherment", "server_auth"]
+  is_ca_certificate     = false
 }
 
 /*
@@ -130,24 +130,22 @@ resource "tls_private_key" "kube_api_client_private_key" {
   API Server - Client Certificate CSR
 */
 resource "tls_cert_request" "kube_api_server_client_csr" {
-  key_algorithm   = "RSA"
   private_key_pem = tls_private_key.kube_api_client_private_key.private_key_pem
+  subject {
+    organization = "system:masters"
+  }
 }
 
 /*
   API Server - Client Certificate: apiserver-kubelet-client.crt
 */
-resource "tls_self_signed_cert" "kube_api_server_client_cert" {
-  key_algorithm       = "RSA"
-  private_key_pem     = tls_private_key.kube_ca_priv_key.private_key_pem
-  certificate_request = tls_cert_request.kube_api_server_client_csr.cert_request_pem
-  validity_period_hrs = 87600
-  allowed_uses        = ["digital_signature", "key_encipherment", "client_auth"]
-  is_ca_certificate   = false
-
-  subject {
-    organization = "system:masters"
-  }
+resource "tls_locally_signed_cert" "kube_api_server_client_cert" {
+  cert_request_pem      = tls_cert_request.kube_api_server_client_csr.cert_request_pem
+  ca_private_key_pem    = tls_private_key.kube_ca_priv_key.private_key_pem
+  ca_cert_pem           = tls_self_signed_cert.kube_ca_cert.cert_pem
+  validity_period_hours = 87600
+  allowed_uses          = ["digital_signature", "key_encipherment", "client_auth"]
+  is_ca_certificate     = false
 }
 
 /*
@@ -161,7 +159,7 @@ resource "tls_private_key" "kube_sa_private_key" {
 /*
   Service Account - Public Key: sa.pub
 */
-resource "tls_public_key" "sa_public_key" {
+data "tls_public_key" "sa_public_key" {
   private_key_pem = tls_private_key.kube_sa_private_key.private_key_pem
 }
 
@@ -177,12 +175,14 @@ resource "tls_private_key" "kube_front_proxy_ca_priv_key" {
   Front Proxy - CA Certificate: front-proxy-ca.crt
 */
 resource "tls_self_signed_cert" "kube_front_proxy_ca_cert" {
-  key_algorithm       = "RSA"
-  private_key_pem     = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
-  is_ca_certificate   = true
-  validity_period_hrs = 87600
-  allowed_uses        = ["cert_signing", "crl_signing"]
-  common_name         = "FrontProxyCA"
+  private_key_pem       = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
+  is_ca_certificate     = true
+  validity_period_hours = 87600
+  allowed_uses          = ["cert_signing", "crl_signing"]
+  subject {
+    common_name = "FrontProxyCA"
+  }
+
 }
 
 /*
@@ -197,18 +197,17 @@ resource "tls_private_key" "kube_front_proxy_client_priv_key" {
   Front Proxy - Client Certificate CSR
 */
 resource "tls_cert_request" "kube_front_proxy_client_csr" {
-  key_algorithm   = "RSA"
   private_key_pem = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
 }
 
 /*
   Front Proxy - Client Certificate: front-proxy-client.crt
 */
-resource "tls_self_signed_cert" "front_proxy_client_cert" {
-  key_algorithm       = "RSA"
-  private_key_pem     = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
-  certificate_request = tls_cert_request.kube_front_proxy_client_csr.cert_request_pem
-  validity_period_hrs = 87600
-  allowed_uses        = ["digital_signature", "key_encipherment"]
-  is_ca_certificate   = false
+resource "tls_locally_signed_cert" "front_proxy_client_cert" {
+  cert_request_pem      = tls_cert_request.kube_front_proxy_client_csr.cert_request_pem
+  ca_private_key_pem    = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
+  ca_cert_pem           = tls_self_signed_cert.kube_front_proxy_ca_cert.cert_pem
+  validity_period_hours = 87600
+  allowed_uses          = ["digital_signature", "key_encipherment", "client_auth"]
+  is_ca_certificate     = false
 }
