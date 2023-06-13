@@ -21,5 +21,9 @@ terraform {
       source  = "ivoronin/macaddress"
       version = "0.3.2"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.5.1"
+    }
   }
 }

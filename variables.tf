@@ -1,3 +1,16 @@
+variable "generate_ca_certificates" {
+  description = "Whether Terraform should generate the necessary certificates. Default is true."
+  type        = bool
+  default     = true
+}
+
+variable "private_key" {
+  description = "The private key file to connect to said Virtual Machine."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "enable_deploy_on_control_node" {
   description = "Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false."
   type        = bool

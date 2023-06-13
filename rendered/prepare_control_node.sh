@@ -217,11 +217,9 @@ function install_k8() {
 function init_control_node() {
   kubeadm init \
     --pod-network-cidr=$pod_network \
-    %{ if kube_token != null ~}
-    --token "${kube_token}" \
+        --token "2x5apz.gu22wz8ktlfl3wkz" \
     --token-ttl 0 \
-    %{ endif ~}
-    --cri-socket=unix:///var/run/cri-dockerd.sock
+        --cri-socket=unix:///var/run/cri-dockerd.sock
 
   if [ "$user_id" -ne 0 ]; then
     mkdir -p $HOME/.kube
@@ -250,6 +248,4 @@ install_docker_runtime
 install_k8
 init_control_node
 init_pod_network
-%{ if pods_on_control_node ~}
 deploy_on_control_plane
-%{ endif ~}
