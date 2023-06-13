@@ -4,6 +4,35 @@ variable "generate_ca_certificates" {
   default     = true
 }
 
+variable "cluster_name" {
+  description = "The name of your Kubernetes Cluster. Default is 'kubernetes'."
+  type        = string
+  default     = "kubernetes"
+}
+
+variable "cluster_domain" {
+  description = "The domain of your cluster (e.g., mycompany.local). Default is 'cluster.local'"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.cluster_domain))
+    error_message = "Invalid domain format. Please provide a valid domain."
+  }
+
+  default = "cluster.local"
+}
+
+variable "cluster_namespace" {
+  description = "The cluster's namespace. Default is 'default'"
+  type        = string
+  default     = "default"
+}
+
+variable "cluster_api_server_name" {
+  description = "The name of the Kubernetes API Server. Default is 'kube-apiserver'."
+  type        = string
+  default     = "kube-apiserver"
+}
 variable "private_key" {
   description = "The private key file to connect to said Virtual Machine."
   type        = string

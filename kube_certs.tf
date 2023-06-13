@@ -1,5 +1,43 @@
+/*
+  DO NOT MODIFY ANYTHING IN LOCALS!!!
+*/
 locals {
   create_certificates = var.generate_ca_certificates ? 1 : 0
+
+  # Name of the control plane
+  control_plane_vm_name = var.control_node_settings.vm_name
+
+  # Internal IP Address of Control Plane (e.g., 10.96.0.1)
+  internal_control_plane_ip = "10.96.0.1"
+  # External IP Address of Control Plane (e.g., 192.168.2.126)
+  external_control_plane_ip = "192.168.2.126"
+
+  # Default Value: kubernetes
+  cluster_name = var.cluster_name
+
+  # Default Value: cluster.local
+  cluster_domain = var.cluster_domain
+
+  # Default Value: default
+  cluster_namespace = var.cluster_namespace
+
+  # Default Value: kubernetes.default
+  cluster_name_and_namespace = "${local.cluster_name}.${local.cluster_namespace}"
+  # Default Value: kubernetes.default.svc
+  cluster_namespace_fqdn = "${local.cluster_name_and_namespace}.svc"
+  # Default Value: kubernetes.default.svc.cluster.local
+  cluster_namespace_fqdn_and_domain = "${local.cluster_namespace_fqdn}.${local.cluster_domain}"
+
+  # Default Value: kube-apiserver
+  api_server_name = var.cluster_api_server_name
+
+  # Default Value: kube-apiserver-kubelet-client
+  api_server_kubelet_client_cn = "${local.api_server_name}-kubelet-client"
+
+  # Default Value: front-proxy-ca
+  front_proxy_ca_name = "front-proxy-ca"
+  # Default Value: front-proxy-client
+  front_proxy_client_name = "front-proxy-client"
 
   certificate_files = var.generate_ca_certificates ? [
     {
@@ -67,11 +105,22 @@ resource "tls_private_key" "kube_ca_priv_key" {
 resource "tls_self_signed_cert" "kube_ca_cert" {
   private_key_pem       = tls_private_key.kube_ca_priv_key.private_key_pem
   is_ca_certificate     = true
+  early_renewal_hours   = 740
   validity_period_hours = 87600
-  allowed_uses          = ["cert_signing", "crl_signing"]
+
+  allowed_uses = [
+    "cert_signing",
+    "digital_signature",
+    "key_encipherment",
+  ]
+
   subject {
-    common_name = "MyKubernetesCA"
+    common_name = local.cluster_name
   }
+
+  dns_names = [
+    "DNS:${local.cluster_name}"
+  ]
 }
 
 
@@ -96,13 +145,20 @@ resource "tls_private_key" "kube_api_server_priv_key" {
 */
 resource "tls_cert_request" "kube_api_server_csr" {
   private_key_pem = tls_private_key.kube_api_server_priv_key.private_key_pem
+  subject {
+    common_name = local.api_server_name
+  }
+
   dns_names = [
-    "DNS:kubernetes.default.svc.zackshomelab.com",
-    "DNS:ZHLControlPlane01",
+    "DNS:${local.control_plane_vm_name}",
+    "DNS:${local.cluster_name}",
+    "DNS:${local.cluster_name_and_namespace}",
+    "DNS:${local.cluster_namespace_fqdn}",
+    "DNS:${local.cluster_namespace_fqdn_and_domain}",
   ]
   ip_addresses = [
-    "IP:10.96.0.1",
-    "IP:192.168.2.126",
+    "IP:${local.internal_control_plane_ip}",
+    "IP:${local.external_control_plane_ip}",
   ]
 }
 
@@ -110,12 +166,20 @@ resource "tls_cert_request" "kube_api_server_csr" {
   API Server - Server Certificate: apiserver.crt
 */
 resource "tls_locally_signed_cert" "kube_api_server_cert" {
-  cert_request_pem      = tls_cert_request.kube_api_server_csr.cert_request_pem
-  ca_private_key_pem    = tls_private_key.kube_ca_priv_key.private_key_pem
-  ca_cert_pem           = tls_self_signed_cert.kube_ca_cert.cert_pem
+  cert_request_pem   = tls_cert_request.kube_api_server_csr.cert_request_pem
+  ca_private_key_pem = tls_private_key.kube_ca_priv_key.private_key_pem
+  ca_cert_pem        = tls_self_signed_cert.kube_ca_cert.cert_pem
+
+  is_ca_certificate = false
+
+  early_renewal_hours   = 740
   validity_period_hours = 87600
-  allowed_uses          = ["digital_signature", "key_encipherment", "server_auth"]
-  is_ca_certificate     = false
+
+  allowed_uses = [
+    "digital_signature",
+    "key_encipherment",
+    "server_auth"
+  ]
 }
 
 /*
@@ -131,7 +195,9 @@ resource "tls_private_key" "kube_api_client_private_key" {
 */
 resource "tls_cert_request" "kube_api_server_client_csr" {
   private_key_pem = tls_private_key.kube_api_client_private_key.private_key_pem
+
   subject {
+    common_name  = local.api_server_kubelet_client_cn
     organization = "system:masters"
   }
 }
@@ -140,12 +206,20 @@ resource "tls_cert_request" "kube_api_server_client_csr" {
   API Server - Client Certificate: apiserver-kubelet-client.crt
 */
 resource "tls_locally_signed_cert" "kube_api_server_client_cert" {
-  cert_request_pem      = tls_cert_request.kube_api_server_client_csr.cert_request_pem
-  ca_private_key_pem    = tls_private_key.kube_ca_priv_key.private_key_pem
-  ca_cert_pem           = tls_self_signed_cert.kube_ca_cert.cert_pem
+  cert_request_pem   = tls_cert_request.kube_api_server_client_csr.cert_request_pem
+  ca_private_key_pem = tls_private_key.kube_ca_priv_key.private_key_pem
+  ca_cert_pem        = tls_self_signed_cert.kube_ca_cert.cert_pem
+
+  is_ca_certificate = false
+
+  early_renewal_hours   = 740
   validity_period_hours = 87600
-  allowed_uses          = ["digital_signature", "key_encipherment", "client_auth"]
-  is_ca_certificate     = false
+
+  allowed_uses = [
+    "digital_signature",
+    "key_encipherment",
+    "client_auth"
+  ]
 }
 
 /*
@@ -175,14 +249,25 @@ resource "tls_private_key" "kube_front_proxy_ca_priv_key" {
   Front Proxy - CA Certificate: front-proxy-ca.crt
 */
 resource "tls_self_signed_cert" "kube_front_proxy_ca_cert" {
-  private_key_pem       = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
-  is_ca_certificate     = true
+  private_key_pem   = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
+  is_ca_certificate = true
+
+  early_renewal_hours   = 740
   validity_period_hours = 87600
-  allowed_uses          = ["cert_signing", "crl_signing"]
+
+  allowed_uses = [
+    "cert_signing",
+    "digital_signature",
+    "key_encipherment"
+  ]
+
   subject {
-    common_name = "FrontProxyCA"
+    common_name = local.front_proxy_ca_name
   }
 
+  dns_names = [
+    "DNS:${local.front_proxy_ca_name}"
+  ]
 }
 
 /*
@@ -198,16 +283,28 @@ resource "tls_private_key" "kube_front_proxy_client_priv_key" {
 */
 resource "tls_cert_request" "kube_front_proxy_client_csr" {
   private_key_pem = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
+
+  subject {
+    common_name = local.front_proxy_client_name
+  }
 }
 
 /*
   Front Proxy - Client Certificate: front-proxy-client.crt
 */
 resource "tls_locally_signed_cert" "front_proxy_client_cert" {
-  cert_request_pem      = tls_cert_request.kube_front_proxy_client_csr.cert_request_pem
-  ca_private_key_pem    = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
-  ca_cert_pem           = tls_self_signed_cert.kube_front_proxy_ca_cert.cert_pem
+  cert_request_pem   = tls_cert_request.kube_front_proxy_client_csr.cert_request_pem
+  ca_private_key_pem = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
+  ca_cert_pem        = tls_self_signed_cert.kube_front_proxy_ca_cert.cert_pem
+
+  is_ca_certificate = false
+
+  early_renewal_hours   = 740
   validity_period_hours = 87600
-  allowed_uses          = ["digital_signature", "key_encipherment", "client_auth"]
-  is_ca_certificate     = false
+
+  allowed_uses = [
+    "digital_signature",
+    "key_encipherment",
+    "client_auth"
+  ]
 }
