@@ -10,6 +10,12 @@ locals {
   # External IP Address of Control Plane (e.g., 192.168.2.126)
   external_control_plane_ip = "192.168.2.126"
 
+  primary_cert_files = var.create_certificates ? [
+    {
+      filename = "ca.key"
+      #content  = module.certs.data.tls_certificate.etcd_server_cert.content
+    }
+  ] : []
   /*
   certificate_files = var.generate_ca_certificates ? [
     {

@@ -1,5 +1,6 @@
 locals {
   control_node_count = var.create_control_node ? 1 : 0
+  upload_certs       = (var.create_certificates || var.create_etcd_certificates) && local.control_node_count > 0 ? local.control_node_count : 0
 
   vm_name     = var.control_node_settings.vm_name
   ciuser      = var.control_node_settings.ciuser
@@ -82,6 +83,30 @@ resource "null_resource" "setup_control_node" {
 
   triggers = {
     vm_id = join("", module.control_node[0].proxmox_vm_id)
+  }
+}
+
+/*
+  Upload kubernetes SSL certificates to their respected location(s) on the control node.
+*/
+resource "null_resource" "upload_certs" {
+  count      = 0
+  depends_on = [null_resource.setup_control_node, module.certs]
+
+  connection {
+    type        = "ssh"
+    user        = local.ciuser
+    private_key = local.private_key
+    host        = join("", module.control_node[count.index].proxmox_vm_ip)
+  }
+
+  provisioner "file" {
+    source      = local_file.prepare_control_node_script.filename
+    destination = "/tmp/prepare_control_node.sh"
+  }
+
+  triggers = {
+    vm_id = join("", module.control_node[count.index].proxmox_vm_id)
   }
 }
 

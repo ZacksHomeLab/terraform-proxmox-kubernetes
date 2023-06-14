@@ -27,10 +27,10 @@ locals {
   cluster_namespace_fqdn_and_domain = "${local.cluster_namespace_fqdn}.${local.cluster_domain}"
 
   # Default Value: kube-apiserver
-  api_server_name = var.api_server_name
+  apiserver_name = var.apiserver_name
 
   # Default Value: kube-apiserver-kubelet-client
-  api_server_kubelet_client_cn = var.api_server_client_name
+  apiserver_kubelet_client_cn = var.apiserver_client_name
 
   # Default Value: front-proxy-ca
   front_proxy_ca_name = var.front_proxy_name
@@ -56,11 +56,11 @@ locals {
     },
     {
       filename = "apiserver.key"
-      content  = tls_private_key.kube_api_server_priv_key[0].private_key_pem
+      content  = tls_private_key.kube_apiserver_priv_key[0].private_key_pem
     },
     {
       filename = "apiserver.crt"
-      content  = tls_locally_signed_cert.kube_api_server_cert[0].cert_pem
+      content  = tls_locally_signed_cert.kube_apiserver_cert[0].cert_pem
     },
     {
       filename = "apiserver-kubelet-client.key"
@@ -68,7 +68,7 @@ locals {
     },
     {
       filename = "apiserver-kubelet-client.crt"
-      content  = tls_locally_signed_cert.kube_api_server_client_cert[0].cert_pem
+      content  = tls_locally_signed_cert.kube_apiserver_client_cert[0].cert_pem
     },
     {
       filename = "sa.key"

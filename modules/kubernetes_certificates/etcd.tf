@@ -1,7 +1,7 @@
 /*
   etcd - CA Certificate Private Key: etcd/ca.key
 */
-resource "tls_private_key" "etcd_ca_private_key" {
+resource "tls_private_key" "etcd_ca_key" {
   count     = local.create_etcd_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -10,9 +10,9 @@ resource "tls_private_key" "etcd_ca_private_key" {
 /*
   etcd - CA Certificate: etcd/ca.crt
 */
-resource "tls_self_signed_cert" "etcd_ca_cert" {
+resource "tls_self_signed_cert" "etcd_ca_crt" {
   count           = local.create_etcd_certificates
-  private_key_pem = data.tls_public_key.etcd_ca_cert_public_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.etcd_ca_key[count.index].private_key_pem
 
   is_ca_certificate = true
 
@@ -34,7 +34,7 @@ resource "tls_self_signed_cert" "etcd_ca_cert" {
   }
 
   depends_on = [
-    data.tls_public_key.etcd_ca_cert_public_key
+    data.tls_public_key.etcd_ca_key
   ]
 }
 
@@ -42,7 +42,7 @@ resource "tls_self_signed_cert" "etcd_ca_cert" {
 /*
   etcd Healthcheck Client - Certificate Private Key: etcd/healthcheck-client.key
 */
-resource "tls_private_key" "healthcheck_client_private_key" {
+resource "tls_private_key" "healthcheck_client_key" {
   count     = local.create_etcd_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -53,7 +53,7 @@ resource "tls_private_key" "healthcheck_client_private_key" {
 */
 resource "tls_cert_request" "healthcheck_client_csr" {
   count           = local.create_etcd_certificates
-  private_key_pem = data.tls_public_key.healthcheck_client_cert_public_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.healthcheck_client_key[count.index].private_key_pem
 
   subject {
     common_name  = local.etcd_healthcheck_name
@@ -61,18 +61,18 @@ resource "tls_cert_request" "healthcheck_client_csr" {
   }
 
   depends_on = [
-    data.tls_public_key.healthcheck_client_cert_public_key
+    data.tls_public_key.healthcheck_client_key
   ]
 }
 
 /*
   etcd Healthcheck Client - Certificate: etcd/healthcheck-client.crt
 */
-resource "tls_locally_signed_cert" "healthcheck_client_cert" {
+resource "tls_locally_signed_cert" "healthcheck_client_crt" {
   count              = local.create_etcd_certificates
   cert_request_pem   = tls_cert_request.healthcheck_client_csr[count.index].cert_request_pem
-  ca_cert_pem        = data.tls_certificate.etcd_ca_cert[count.index].content
-  ca_private_key_pem = data.tls_public_key.etcd_ca_cert_public_key[count.index].private_key_pem
+  ca_cert_pem        = data.tls_certificate.etcd_ca_crt[count.index].content
+  ca_private_key_pem = data.tls_public_key.etcd_ca_key[count.index].private_key_pem
 
   is_ca_certificate = false
 
@@ -86,15 +86,15 @@ resource "tls_locally_signed_cert" "healthcheck_client_cert" {
   ]
 
   depends_on = [
-    data.tls_certificate.etcd_ca_cert,
-    data.tls_public_key.etcd_ca_cert_public_key
+    data.tls_certificate.etcd_ca_crt,
+    data.tls_public_key.etcd_ca_key
   ]
 }
 
 /*
   etcd Peer - Certificate Private Key: etcd/peer.key
 */
-resource "tls_private_key" "etcd_peer_private_key" {
+resource "tls_private_key" "etcd_peer_key" {
   count     = local.create_etcd_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -105,7 +105,7 @@ resource "tls_private_key" "etcd_peer_private_key" {
 */
 resource "tls_cert_request" "etcd_peer_csr" {
   count           = local.create_etcd_certificates
-  private_key_pem = data.tls_public_key.etcd_peer_cert_public_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.etcd_peer_key[count.index].private_key_pem
 
   dns_names = [
     "localhost",
@@ -123,18 +123,18 @@ resource "tls_cert_request" "etcd_peer_csr" {
   }
 
   depends_on = [
-    data.tls_public_key.etcd_peer_cert_public_key
+    data.tls_public_key.etcd_peer_key
   ]
 }
 
 /*
   etcd Peer - Certificate: etcd/peer.crt
 */
-resource "tls_locally_signed_cert" "etcd_peer_cert" {
+resource "tls_locally_signed_cert" "etcd_peer_crt" {
   count              = local.create_etcd_certificates
   cert_request_pem   = tls_cert_request.etcd_peer_csr[count.index].cert_request_pem
-  ca_cert_pem        = data.tls_certificate.etcd_ca_cert[count.index].content
-  ca_private_key_pem = data.tls_public_key.etcd_ca_cert_public_key[count.index].private_key_pem
+  ca_cert_pem        = data.tls_certificate.etcd_ca_crt[count.index].content
+  ca_private_key_pem = data.tls_public_key.etcd_ca_key[count.index].private_key_pem
 
   is_ca_certificate = false
 
@@ -147,15 +147,15 @@ resource "tls_locally_signed_cert" "etcd_peer_cert" {
   ]
 
   depends_on = [
-    data.tls_certificate.etcd_ca_cert,
-    data.tls_public_key.etcd_ca_cert_public_key
+    data.tls_certificate.etcd_ca_crt,
+    data.tls_public_key.etcd_ca_key
   ]
 }
 
 /*
   etcd Server - Certificate Private Key: etcd/server.key
 */
-resource "tls_private_key" "etcd_server_private_key" {
+resource "tls_private_key" "etcd_server_key" {
   count     = local.create_etcd_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -166,7 +166,7 @@ resource "tls_private_key" "etcd_server_private_key" {
 */
 resource "tls_cert_request" "etcd_server_csr" {
   count           = local.create_etcd_certificates
-  private_key_pem = data.tls_public_key.etcd_server_cert_public_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.etcd_server_key[count.index].private_key_pem
 
   dns_names = [
     "localhost",
@@ -184,18 +184,18 @@ resource "tls_cert_request" "etcd_server_csr" {
   }
 
   depends_on = [
-    data.tls_public_key.etcd_server_cert_public_key
+    data.tls_public_key.etcd_server_key
   ]
 }
 
 /*
   etcd Peer - Certificate: etcd/server.crt
 */
-resource "tls_locally_signed_cert" "etcd_server_cert" {
+resource "tls_locally_signed_cert" "etcd_server_crt" {
   count              = local.create_etcd_certificates
   cert_request_pem   = tls_cert_request.etcd_server_csr[count.index].cert_request_pem
-  ca_cert_pem        = data.tls_certificate.etcd_ca_cert[count.index].content
-  ca_private_key_pem = data.tls_public_key.etcd_ca_cert_public_key[count.index].private_key_pem
+  ca_cert_pem        = data.tls_certificate.etcd_ca_crt[count.index].content
+  ca_private_key_pem = data.tls_public_key.etcd_ca_key[count.index].private_key_pem
 
   is_ca_certificate = false
 
@@ -208,55 +208,47 @@ resource "tls_locally_signed_cert" "etcd_server_cert" {
   ]
 
   depends_on = [
-    data.tls_certificate.etcd_ca_cert,
-    data.tls_public_key.etcd_ca_cert_public_key
+    data.tls_certificate.etcd_ca_crt,
+    data.tls_public_key.etcd_ca_key
   ]
 }
 
-data "tls_certificate" "etcd_ca_cert" {
-  count      = local.create_etcd_certificates
-  content    = tls_self_signed_cert.etcd_ca_cert[count.index].cert_pem
-  depends_on = [tls_self_signed_cert.etcd_ca_cert]
+data "tls_certificate" "etcd_ca_crt" {
+  count   = local.create_etcd_certificates
+  content = tls_self_signed_cert.etcd_ca_crt[count.index].cert_pem
 }
 
-data "tls_public_key" "etcd_ca_cert_public_key" {
+data "tls_public_key" "etcd_ca_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_ca_private_key[count.index].private_key_pem
-  depends_on      = [tls_private_key.etcd_ca_private_key]
+  private_key_pem = tls_private_key.etcd_ca_key[count.index].private_key_pem
 }
 
-data "tls_certificate" "healthcheck_client_cert" {
-  count      = local.create_etcd_certificates
-  content    = tls_locally_signed_cert.healthcheck_client_cert[count.index].cert_pem
-  depends_on = [tls_locally_signed_cert.healthcheck_client_cert]
+data "tls_certificate" "healthcheck_client_crt" {
+  count   = local.create_etcd_certificates
+  content = tls_locally_signed_cert.healthcheck_client_crt[count.index].cert_pem
 }
 
-data "tls_public_key" "healthcheck_client_cert_public_key" {
+data "tls_public_key" "healthcheck_client_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.healthcheck_client_private_key[count.index].private_key_pem
-  depends_on      = [tls_private_key.healthcheck_client_private_key]
+  private_key_pem = tls_private_key.healthcheck_client_key[count.index].private_key_pem
 }
 
-data "tls_certificate" "etcd_peer_cert" {
-  count      = local.create_etcd_certificates
-  content    = tls_locally_signed_cert.etcd_peer_cert[count.index].cert_pem
-  depends_on = [tls_locally_signed_cert.etcd_peer_cert]
+data "tls_certificate" "etcd_peer_crt" {
+  count   = local.create_etcd_certificates
+  content = tls_locally_signed_cert.etcd_peer_crt[count.index].cert_pem
 }
 
-data "tls_public_key" "etcd_peer_cert_public_key" {
+data "tls_public_key" "etcd_peer_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_peer_private_key[count.index].private_key_pem
-  depends_on      = [tls_private_key.etcd_peer_private_key]
+  private_key_pem = tls_private_key.etcd_peer_key[count.index].private_key_pem
 }
 
-data "tls_certificate" "etcd_server_cert" {
-  count      = local.create_etcd_certificates
-  content    = tls_locally_signed_cert.etcd_server_cert[count.index].cert_pem
-  depends_on = [tls_locally_signed_cert.etcd_server_cert]
+data "tls_certificate" "etcd_server_crt" {
+  count   = local.create_etcd_certificates
+  content = tls_locally_signed_cert.etcd_server_crt[count.index].cert_pem
 }
 
-data "tls_public_key" "etcd_server_cert_public_key" {
+data "tls_public_key" "etcd_server_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_server_private_key[count.index].private_key_pem
-  depends_on      = [tls_private_key.etcd_server_private_key]
+  private_key_pem = tls_private_key.etcd_server_key[count.index].private_key_pem
 }

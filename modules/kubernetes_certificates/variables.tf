@@ -46,14 +46,14 @@ variable "cluster_namespace" {
   default     = "default"
 }
 
-variable "api_server_name" {
+variable "apiserver_name" {
   description = "(String) The name of the Kubernetes API Server. Default is 'kube-apiserver'."
   type        = string
   nullable    = false
   default     = "kube-apiserver"
 }
 
-variable "api_server_client_name" {
+variable "apiserver_client_name" {
   description = "(String) The name of the Kubernetes API Server Client Certificate. Default is 'kube-apiserver-kubelet-client'."
   type        = string
   nullable    = false
@@ -88,7 +88,7 @@ variable "etcd_healthcheck_name" {
   default     = "kube-etcd-healthcheck-client"
 }
 
-variable "etcd_api_server_client_name" {
+variable "etcd_apiserver_client_name" {
   description = "(String) The Name of the certificate the apiserver uses to access etcd. Default is 'kube-apiserver-etcd-client'."
   type        = string
   nullable    = false

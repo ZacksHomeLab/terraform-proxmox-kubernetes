@@ -1,7 +1,7 @@
 /*
   Private Key: ca.key
 */
-resource "tls_private_key" "ca_private_key" {
+resource "tls_private_key" "ca_key" {
   count     = local.create_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -10,9 +10,9 @@ resource "tls_private_key" "ca_private_key" {
 /*
   CA Certificate: ca.crt
 */
-resource "tls_self_signed_cert" "ca_cert" {
+resource "tls_self_signed_cert" "ca_crt" {
   count           = local.create_certificates
-  private_key_pem = data.tls_public_key.ca_cert_public_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.ca_key[count.index].private_key_pem
 
   is_ca_certificate = true
 
@@ -34,18 +34,27 @@ resource "tls_self_signed_cert" "ca_cert" {
   }
 
   depends_on = [
-    data.tls_public_key.ca_cert_public_key
+    data.tls_public_key.ca_key
   ]
 }
 
-data "tls_certificate" "ca_cert" {
-  count      = local.create_certificates
-  content    = tls_self_signed_cert.ca_cert[count.index].cert_pem
-  depends_on = [tls_self_signed_cert.ca_cert]
+data "tls_certificate" "ca_crt" {
+  count   = local.create_certificates
+  content = tls_self_signed_cert.ca_crt[count.index].cert_pem
 }
 
-data "tls_public_key" "ca_cert_public_key" {
+data "tls_public_key" "ca_key" {
   count           = local.create_certificates
-  private_key_pem = tls_private_key.ca_private_key[count.index].private_key_pem
-  depends_on      = [tls_private_key.ca_private_key]
+  private_key_pem = tls_private_key.ca_key[count.index].private_key_pem
+}
+
+output "ca_crt" {
+  description = "The contents of ca.crt."
+  value       = trimspace(data.tls_certificate.ca_crt[0].content)
+}
+
+output "ca_key" {
+  description = "The contents of ca.key and ca.pub."
+  value       = trimspace(data.tls_public_key.ca_key[0].private_key_pem)
+  sensitive   = true
 }
