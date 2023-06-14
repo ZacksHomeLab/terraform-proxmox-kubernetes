@@ -33,6 +33,7 @@ variable "cluster_api_server_name" {
   type        = string
   default     = "kube-apiserver"
 }
+
 variable "private_key" {
   description = "The private key file to connect to said Virtual Machine."
   type        = string
