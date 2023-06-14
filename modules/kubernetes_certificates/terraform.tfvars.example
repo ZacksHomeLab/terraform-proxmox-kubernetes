@@ -1,0 +1,5 @@
+cluster_name = "kubernetes"
+cluster_domain = "cluster.local"
+control_plane_name = "pluto"
+internal_control_plane_ip = "10.96.0.1"
+external_control_plane_ip = "192.168.1.1"

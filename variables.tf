@@ -1,5 +1,16 @@
-variable "generate_ca_certificates" {
-  description = "Whether Terraform should generate the necessary certificates. Default is true."
+variable "create_certificates" {
+  description = "(Bool) Whether Terraform should generate the necessary certificates. Default is true."
+  type        = bool
+  default     = true
+}
+
+variable "create_etcd_certificates" {
+  description = <<-EOT
+    "(Bool) Whether Terraform should generate the necessary certificates for etcd.
+    You would disable this functionality if you were to use a service other than etcd.
+
+    Default is true."
+  EOT
   type        = bool
   default     = true
 }
