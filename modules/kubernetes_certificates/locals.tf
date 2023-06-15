@@ -2,8 +2,12 @@ locals {
   create_certificates      = var.create_certificates ? 1 : 0
   create_etcd_certificates = var.create_etcd_certificates ? 1 : 0
 
+  cert_directory      = trimsuffix(var.certificate_directory, "/")
+  etcd_cert_directory = trimsuffix(var.etcd_certificate_directory, "/")
+
   # Name of the control plane
   control_plane_name = var.control_plane_name
+
 
   # Internal IP Address of Control Plane (e.g., 10.96.0.1)
   internal_control_plane_ip = var.internal_control_plane_ip
@@ -44,56 +48,92 @@ locals {
 
   early_renewal_hours   = var.early_renewal_hours
   validity_period_hours = var.validity_period_hours
-  /*
-  certificate_files = var.generate_ca_certificates ? [
+
+  essential_cert_files = var.create_certificates ? [
     {
-      filename = "ca.key"
-      content  = tls_private_key.kube_ca_priv_key[0].private_key_pem
+      filename = "${local.cert_directory}/ca.crt"
+      content  = trimspace(data.tls_certificate.ca_crt[0].content)
     },
     {
-      filename = "ca.crt"
-      content  = tls_self_signed_cert.kube_ca_cert[0].cert_pem
+      filename = "${local.cert_directory}/ca.key"
+      content  = trimspace(data.tls_public_key.ca_key[0].private_key_pem)
     },
     {
-      filename = "apiserver.key"
-      content  = tls_private_key.kube_apiserver_priv_key[0].private_key_pem
+      filename = "${local.cert_directory}/apiserver.crt"
+      content  = trimspace(data.tls_certificate.apiserver_crt[0].content)
     },
     {
-      filename = "apiserver.crt"
-      content  = tls_locally_signed_cert.kube_apiserver_cert[0].cert_pem
+      filename = "${local.cert_directory}/apiserver.key"
+      content  = trimspace(data.tls_public_key.apiserver_key[0].private_key_pem)
     },
     {
-      filename = "apiserver-kubelet-client.key"
-      content  = tls_private_key.kube_api_client_private_key[0].private_key_pem
+      filename = "${local.cert_directory}/apiserver-kubelet-client.crt"
+      content  = trimspace(data.tls_certificate.apiserver_kubelet_client_crt[0].content)
     },
     {
-      filename = "apiserver-kubelet-client.crt"
-      content  = tls_locally_signed_cert.kube_apiserver_client_cert[0].cert_pem
+      filename = "${local.cert_directory}/apiserver-kubelet-client.key"
+      content  = trimspace(data.tls_public_key.apiserver_kubelet_client_key[0].private_key_pem)
     },
     {
-      filename = "sa.key"
-      content  = tls_private_key.kube_sa_private_key[0].private_key_pem
+      filename = "${local.cert_directory}/front-proxy.crt"
+      content  = trimspace(data.tls_certificate.front_proxy_crt[0].content)
     },
     {
-      filename = "sa.pub"
-      content  = data.tls_public_key.sa_public_key[0].public_key_pem
+      filename = "${local.cert_directory}/front-proxy.key"
+      content  = trimspace(data.tls_public_key.front_proxy_key[0].private_key_pem)
     },
     {
-      filename = "front-proxy-ca.key"
-      content  = tls_private_key.kube_front_proxy_ca_priv_key[0].private_key_pem
+      filename = "${local.cert_directory}/front-proxy-client.crt"
+      content  = trimspace(data.tls_certificate.front_proxy_client_crt[0].content)
     },
     {
-      filename = "front-proxy-ca.crt"
-      content  = tls_self_signed_cert.kube_front_proxy_ca_cert[0].cert_pem
-    },
-    {
-      filename = "front-proxy-client.key"
-      content  = tls_private_key.kube_front_proxy_client_priv_key[0].private_key_pem
-    },
-    {
-      filename = "front-proxy-client.crt"
-      content  = tls_locally_signed_cert.front_proxy_client_cert[0].cert_pem
-    },
+      filename = "${local.cert_directory}/front-proxy-client.key"
+      content  = trimspace(data.tls_public_key.front_proxy_client_key[0].private_key_pem)
+    }
   ] : []
-  */
+
+  etcd_cert_files = var.create_etcd_certificates ? [
+    {
+      filename = "${local.etcd_cert_directory}/apiserver-etcd-client.crt"
+      content  = trimspace(data.tls_certificate.apiserver_etcd_client_crt[0].content)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/apiserver-etcd-client.key"
+      content  = trimspace(data.tls_public_key.apiserver_etcd_client_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/ca.crt"
+      content  = trimspace(data.tls_certificate.etcd_ca_crt[0].content)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/ca.key"
+      content  = trimspace(data.tls_public_key.etcd_ca_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/healthcheck-client.crt"
+      content  = trimspace(data.tls_certificate.healthcheck_client_crt[0].content)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/healthcheck-client.key"
+      content  = trimspace(data.tls_public_key.healthcheck_client_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/peer.crt"
+      content  = trimspace(data.tls_certificate.etcd_peer_crt[0].content)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/peer.key"
+      content  = trimspace(data.tls_public_key.etcd_peer_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/server.crt"
+      content  = trimspace(data.tls_certificate.etcd_server_crt[0].content)
+    },
+    {
+      filename = "${local.etcd_cert_directory}/server.key"
+      content  = trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem)
+    }
+  ] : []
+
+  //all_cert_files = flatten()
 }

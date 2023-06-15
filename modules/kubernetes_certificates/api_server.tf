@@ -175,12 +175,24 @@ data "tls_certificate" "apiserver_crt" {
   content = tls_locally_signed_cert.apiserver_crt[count.index].cert_pem
 }
 
+output "k8_certs_apiserver_crt" {
+  description = "The contents of apiserver.crt."
+  value       = trimspace(data.tls_certificate.apiserver_crt[0].content)
+  sensitive   = true
+}
+
 /*
   API Server - Server Certificate Private Key: apiserver.key
 */
 data "tls_public_key" "apiserver_key" {
   count           = local.create_certificates
   private_key_pem = tls_private_key.apiserver_key[count.index].private_key_pem
+}
+
+output "k8_certs_apiserver_key" {
+  description = "The contents of apiserver.key."
+  value       = trimspace(data.tls_public_key.apiserver_key[0].private_key_pem)
+  sensitive   = true
 }
 
 /*
@@ -191,12 +203,24 @@ data "tls_certificate" "apiserver_kubelet_client_crt" {
   content = tls_locally_signed_cert.apiserver_kubelet_client_crt[count.index].cert_pem
 }
 
+output "k8_certs_apiserver_kubelet_client_crt" {
+  description = "The contents of apiserver-kubelet-client.crt."
+  value       = trimspace(data.tls_certificate.apiserver_kubelet_client_crt[0].content)
+  sensitive   = true
+}
+
 /*
   API Server - Client Certificate Private Key: apiserver-kubelet-client.key
 */
 data "tls_public_key" "apiserver_kubelet_client_key" {
   count           = local.create_certificates
   private_key_pem = tls_private_key.apiserver_client_key[count.index].private_key_pem
+}
+
+output "k8_certs_apiserver_kubelet_client_key" {
+  description = "The contents of apiserver-kubelet-client.key."
+  value       = trimspace(data.tls_public_key.apiserver_kubelet_client_key[0].private_key_pem)
+  sensitive   = true
 }
 
 /*
@@ -207,6 +231,12 @@ data "tls_certificate" "apiserver_etcd_client_crt" {
   content = tls_locally_signed_cert.apiserver_etcd_client_crt[count.index].cert_pem
 }
 
+output "k8_certs_apiserver_etcd_client_crt" {
+  description = "The contents of apiserver-etcd-client.crt."
+  value       = trimspace(data.tls_certificate.apiserver_etcd_client_crt[0].content)
+  sensitive   = true
+}
+
 /*
   API Server - Etcd Client Certificate Private Key: apiserver-etcd-client.key
 */
@@ -215,35 +245,8 @@ data "tls_public_key" "apiserver_etcd_client_key" {
   private_key_pem = tls_private_key.apiserver_etcd_client_key[count.index].private_key_pem
 }
 
-output "apiserver_crt" {
-  description = "The contents of apiserver.crt."
-  value       = trimspace(data.tls_certificate.apiserver_crt[0].content)
-}
-
-output "apiserver_key" {
-  description = "The contents of apiserver.key and apiserver.pub."
-  value       = trimspace(data.tls_public_key.apiserver_key[0].private_key_pem)
-  sensitive   = true
-}
-
-output "apiserver_kubelet_client_crt" {
-  description = "The contents of apiserver-kubelet-client.crt."
-  value       = trimspace(data.tls_certificate.apiserver_kubelet_client_crt[0].content)
-}
-
-output "apiserver_kubelet_client_key" {
-  description = "The contents of apiserver-kubelet-client.key and apiserver-kubelet-client.pub."
-  value       = trimspace(data.tls_public_key.apiserver_kubelet_client_key[0].private_key_pem)
-  sensitive   = true
-}
-
-output "apiserver_etcd_client_crt" {
-  description = "The contents of apiserver-etcd-client.crt."
-  value       = trimspace(data.tls_certificate.apiserver_etcd_client_crt[0].content)
-}
-
-output "apiserver_etcd_client_key" {
-  description = "The contents of apiserver-etcd-client.key and apiserver-etcd-client.pub"
+output "k8_certs_apiserver_etcd_client_key" {
+  description = "The contents of apiserver-etcd-client.key."
   value       = trimspace(data.tls_public_key.apiserver_etcd_client_key[0].private_key_pem)
   sensitive   = true
 }

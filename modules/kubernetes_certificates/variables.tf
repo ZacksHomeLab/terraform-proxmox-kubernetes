@@ -15,6 +15,19 @@ variable "create_etcd_certificates" {
   default     = true
 }
 
+variable "certificate_directory" {
+  description = "The default directory of the kubernetes certificates. Default is '/etc/kubernetes/pki'"
+  type        = string
+  default     = "/etc/kubernetes/pki"
+}
+
+variable "etcd_certificate_directory" {
+  description = "The default directory of the etcd server certificates. Default is '/etc/kubernetes/pki/etcd'"
+  type        = string
+  default     = "/etc/kubernetes/pki/etcd"
+}
+
+
 variable "control_plane_name" {
   description = "(String) The name of the Control Plane. This can be the machine's name."
   type        = string

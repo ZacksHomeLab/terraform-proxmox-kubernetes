@@ -38,7 +38,6 @@ resource "tls_self_signed_cert" "etcd_ca_crt" {
   ]
 }
 
-
 /*
   etcd Healthcheck Client - Certificate Private Key: etcd/healthcheck-client.key
 */
@@ -189,7 +188,7 @@ resource "tls_cert_request" "etcd_server_csr" {
 }
 
 /*
-  etcd Peer - Certificate: etcd/server.crt
+  etcd Server - Certificate: etcd/server.crt
 */
 resource "tls_locally_signed_cert" "etcd_server_crt" {
   count              = local.create_etcd_certificates
@@ -213,42 +212,114 @@ resource "tls_locally_signed_cert" "etcd_server_crt" {
   ]
 }
 
+/*
+  etcd - CA Certificate: etcd/ca.crt
+*/
 data "tls_certificate" "etcd_ca_crt" {
   count   = local.create_etcd_certificates
   content = tls_self_signed_cert.etcd_ca_crt[count.index].cert_pem
 }
 
+output "etcd_ca_crt" {
+  description = "The contents of etcd/ca.crt."
+  value       = trimspace(data.tls_certificate.etcd_ca_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  etcd - CA Certificate Private Key: etcd/ca.key
+*/
 data "tls_public_key" "etcd_ca_key" {
   count           = local.create_etcd_certificates
   private_key_pem = tls_private_key.etcd_ca_key[count.index].private_key_pem
 }
 
+output "etcd_ca_key" {
+  description = "The contents of etcd/ca.key."
+  value       = trimspace(data.tls_public_key.etcd_ca_key[0].private_key_pem)
+  sensitive   = true
+}
+
+/*
+  etcd Healthcheck Client - Certificate: etcd/healthcheck-client.crt
+*/
 data "tls_certificate" "healthcheck_client_crt" {
   count   = local.create_etcd_certificates
   content = tls_locally_signed_cert.healthcheck_client_crt[count.index].cert_pem
 }
 
+output "healthcheck_client_crt" {
+  description = "The contents of etcd/healthcheck-client.crt."
+  value       = trimspace(data.tls_certificate.healthcheck_client_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  etcd Healthcheck Client - Certificate Private Key: etcd/healthcheck-client.key
+*/
 data "tls_public_key" "healthcheck_client_key" {
   count           = local.create_etcd_certificates
   private_key_pem = tls_private_key.healthcheck_client_key[count.index].private_key_pem
 }
 
+output "healthcheck_client_key" {
+  description = "The contents of etcd/healthcheck-client.key."
+  value       = trimspace(data.tls_public_key.healthcheck_client_key[0].private_key_pem)
+  sensitive   = true
+}
+
+/*
+  etcd Peer - Certificate: etcd/peer.crt
+*/
 data "tls_certificate" "etcd_peer_crt" {
   count   = local.create_etcd_certificates
   content = tls_locally_signed_cert.etcd_peer_crt[count.index].cert_pem
 }
 
+output "etcd_peer_crt" {
+  description = "The contents of etcd/peer.crt."
+  value       = trimspace(data.tls_certificate.etcd_peer_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  etcd Peer - Certificate Private Key: etcd/peer.key
+*/
 data "tls_public_key" "etcd_peer_key" {
   count           = local.create_etcd_certificates
   private_key_pem = tls_private_key.etcd_peer_key[count.index].private_key_pem
 }
 
+output "etcd_peer_key" {
+  description = "The contents of etcd/peer.key."
+  value       = trimspace(data.tls_public_key.etcd_peer_key[0].private_key_pem)
+  sensitive   = true
+}
+
+/*
+  etcd Server - Certificate: etcd/server.crt
+*/
 data "tls_certificate" "etcd_server_crt" {
   count   = local.create_etcd_certificates
   content = tls_locally_signed_cert.etcd_server_crt[count.index].cert_pem
 }
 
+output "etcd_server_crt" {
+  description = "The contents of etcd/server.crt."
+  value       = trimspace(data.tls_certificate.etcd_server_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  etcd Server - Certificate Private Key: etcd/server.key
+*/
 data "tls_public_key" "etcd_server_key" {
   count           = local.create_etcd_certificates
   private_key_pem = tls_private_key.etcd_server_key[count.index].private_key_pem
+}
+
+output "etcd_server_key" {
+  description = "The contents of etcd/server.key."
+  value       = trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem)
+  sensitive   = true
 }

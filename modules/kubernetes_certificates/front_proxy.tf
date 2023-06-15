@@ -89,22 +89,58 @@ resource "tls_locally_signed_cert" "front_proxy_client_crt" {
   ]
 }
 
+/*
+  Front Proxy - CA Certificate: front-proxy-ca.crt
+*/
 data "tls_certificate" "front_proxy_crt" {
   count   = local.create_certificates
   content = tls_self_signed_cert.front_proxy_crt[count.index].cert_pem
 }
 
+output "front_proxy_crt" {
+  description = "The contents of front-proxy.crt."
+  value       = trimspace(data.tls_certificate.front_proxy_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  Front Proxy - Private Key: front-proxy-ca.key
+*/
 data "tls_public_key" "front_proxy_key" {
   count           = local.create_certificates
   private_key_pem = tls_private_key.front_proxy_key[count.index].private_key_pem
 }
 
+output "front_proxy_key" {
+  description = "The contents of front-proxy.key."
+  value       = trimspace(data.tls_public_key.front_proxy_key[0].private_key_pem)
+  sensitive   = true
+}
+
+/*
+  Front Proxy - Client Certificate: front-proxy-client.crt
+*/
 data "tls_certificate" "front_proxy_client_crt" {
   count   = local.create_certificates
   content = tls_locally_signed_cert.front_proxy_client_crt[count.index].cert_pem
 }
 
+output "front_proxy_client_crt" {
+  description = "The contents of front-proxy-client.crt."
+  value       = trimspace(data.tls_certificate.front_proxy_client_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  Front Proxy - Client Private Key: front-proxy-client.key
+*/
 data "tls_public_key" "front_proxy_client_key" {
   count           = local.create_certificates
   private_key_pem = tls_private_key.front_proxy_client_key[count.index].private_key_pem
+}
+
+output "front_proxy_client_key" {
+  description = "The contents of front-proxy-client.key."
+  value       = trimspace(data.tls_public_key.front_proxy_client_key[0].private_key_pem)
+  sensitive   = true
 }

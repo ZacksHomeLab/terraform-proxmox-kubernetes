@@ -38,23 +38,30 @@ resource "tls_self_signed_cert" "ca_crt" {
   ]
 }
 
+/*
+  Control Plane - CA Certificate: ca.crt
+*/
 data "tls_certificate" "ca_crt" {
   count   = local.create_certificates
   content = tls_self_signed_cert.ca_crt[count.index].cert_pem
 }
 
+output "k8_certs_ca_crt" {
+  description = "The contents of ca.crt."
+  value       = trimspace(data.tls_certificate.ca_crt[0].content)
+  sensitive   = true
+}
+
+/*
+  Control Plane - CA Private Key: ca.key
+*/
 data "tls_public_key" "ca_key" {
   count           = local.create_certificates
   private_key_pem = tls_private_key.ca_key[count.index].private_key_pem
 }
 
-output "ca_crt" {
-  description = "The contents of ca.crt."
-  value       = trimspace(data.tls_certificate.ca_crt[0].content)
-}
-
-output "ca_key" {
-  description = "The contents of ca.key and ca.pub."
+output "k8_certs_ca_key" {
+  description = "The contents of ca.key."
   value       = trimspace(data.tls_public_key.ca_key[0].private_key_pem)
   sensitive   = true
 }
