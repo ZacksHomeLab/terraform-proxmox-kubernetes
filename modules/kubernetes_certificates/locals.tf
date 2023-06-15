@@ -49,7 +49,7 @@ locals {
   early_renewal_hours   = var.early_renewal_hours
   validity_period_hours = var.validity_period_hours
 
-  essential_cert_files = var.create_certificates ? [
+  primary_files = var.create_certificates ? flatten([
     {
       filename = "${local.cert_directory}/ca.crt"
       content  = trimspace(data.tls_certificate.ca_crt[0].content)
@@ -89,10 +89,18 @@ locals {
     {
       filename = "${local.cert_directory}/front-proxy-client.key"
       content  = trimspace(data.tls_public_key.front_proxy_client_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.cert_directory}/sa.key"
+      content  = trimspace(data.tls_public_key.sa_key[0].private_key_pem)
+    },
+    {
+      filename = "${local.cert_directory}/sa.pub"
+      content  = trimspace(data.tls_public_key.sa_key[0].public_key_pem)
     }
-  ] : []
+  ]) : []
 
-  etcd_cert_files = var.create_etcd_certificates ? [
+  etcd_files = var.create_etcd_certificates ? flatten([
     {
       filename = "${local.etcd_cert_directory}/apiserver-etcd-client.crt"
       content  = trimspace(data.tls_certificate.apiserver_etcd_client_crt[0].content)
@@ -111,11 +119,11 @@ locals {
     },
     {
       filename = "${local.etcd_cert_directory}/healthcheck-client.crt"
-      content  = trimspace(data.tls_certificate.healthcheck_client_crt[0].content)
+      content  = trimspace(data.tls_certificate.etcd_healthcheck_client_crt[0].content)
     },
     {
       filename = "${local.etcd_cert_directory}/healthcheck-client.key"
-      content  = trimspace(data.tls_public_key.healthcheck_client_key[0].private_key_pem)
+      content  = trimspace(data.tls_public_key.etcd_healthcheck_client_key[0].private_key_pem)
     },
     {
       filename = "${local.etcd_cert_directory}/peer.crt"
@@ -133,7 +141,17 @@ locals {
       filename = "${local.etcd_cert_directory}/server.key"
       content  = trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem)
     }
-  ] : []
+  ]) : []
 
-  //all_cert_files = flatten()
+  # Combine both lists into a single list
+  all_files = flatten(concat(
+    local.primary_files,
+    local.etcd_files
+  ))
+
+  primary_cert_files = { for i, cert in local.primary_files : tostring(i) => cert }
+  etcd_cert_files    = { for i, cert in local.etcd_files : tostring(i) => cert }
+
+  # Convert all_files into a map, which can be used for for-each resources.
+  all_cert_files = { for i, cert in local.all_files : tostring(i) => cert }
 }

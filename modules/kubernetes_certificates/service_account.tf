@@ -8,18 +8,24 @@ resource "tls_private_key" "sa_key" {
 }
 
 /*
-  Service Account - Public Key: sa.pub
-
-  Access the PUblic Key SHA256 by passing:
-    data.tls_public_key.sa_pub.public_key_fingerprint_sha256
+  Service Account - Private Key: sa.key
 */
-data "tls_public_key" "sa_pub" {
+data "tls_public_key" "sa_key" {
   count           = local.create_certificates
-  private_key_pem = tls_private_key.sa_key[count.index].private_key_pem
+  private_key_pem = trimspace(tls_private_key.sa_key[count.index].private_key_pem)
 }
 
 output "sa_key" {
-  description = "The contents of sa.key and sa.pub."
-  value       = trimspace(data.tls_public_key.sa_pub[0].private_key_pem)
+  description = "The contents of sa.key."
+  value       = var.create_certificates ? trimspace(data.tls_public_key.sa_key[0].private_key_pem) : null
+  sensitive   = true
+}
+
+/*
+  Service Account - Public Key: sa.pub
+*/
+output "sa_pub" {
+  description = "The contents of sa.pub."
+  value       = var.create_certificates ? trimspace(data.tls_public_key.sa_key[0].public_key_pem) : null
   sensitive   = true
 }

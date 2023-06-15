@@ -41,7 +41,7 @@ resource "tls_self_signed_cert" "etcd_ca_crt" {
 /*
   etcd Healthcheck Client - Certificate Private Key: etcd/healthcheck-client.key
 */
-resource "tls_private_key" "healthcheck_client_key" {
+resource "tls_private_key" "etcd_healthcheck_client_key" {
   count     = local.create_etcd_certificates
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -50,9 +50,9 @@ resource "tls_private_key" "healthcheck_client_key" {
 /*
   etcd Healthcheck Client - Certificate CSR
 */
-resource "tls_cert_request" "healthcheck_client_csr" {
+resource "tls_cert_request" "etcd_healthcheck_client_csr" {
   count           = local.create_etcd_certificates
-  private_key_pem = data.tls_public_key.healthcheck_client_key[count.index].private_key_pem
+  private_key_pem = data.tls_public_key.etcd_healthcheck_client_key[count.index].private_key_pem
 
   subject {
     common_name  = local.etcd_healthcheck_name
@@ -60,16 +60,16 @@ resource "tls_cert_request" "healthcheck_client_csr" {
   }
 
   depends_on = [
-    data.tls_public_key.healthcheck_client_key
+    data.tls_public_key.etcd_healthcheck_client_key
   ]
 }
 
 /*
   etcd Healthcheck Client - Certificate: etcd/healthcheck-client.crt
 */
-resource "tls_locally_signed_cert" "healthcheck_client_crt" {
+resource "tls_locally_signed_cert" "etcd_healthcheck_client_crt" {
   count              = local.create_etcd_certificates
-  cert_request_pem   = tls_cert_request.healthcheck_client_csr[count.index].cert_request_pem
+  cert_request_pem   = tls_cert_request.etcd_healthcheck_client_csr[count.index].cert_request_pem
   ca_cert_pem        = data.tls_certificate.etcd_ca_crt[count.index].content
   ca_private_key_pem = data.tls_public_key.etcd_ca_key[count.index].private_key_pem
 
@@ -217,12 +217,12 @@ resource "tls_locally_signed_cert" "etcd_server_crt" {
 */
 data "tls_certificate" "etcd_ca_crt" {
   count   = local.create_etcd_certificates
-  content = tls_self_signed_cert.etcd_ca_crt[count.index].cert_pem
+  content = trimspace(tls_self_signed_cert.etcd_ca_crt[count.index].cert_pem)
 }
 
 output "etcd_ca_crt" {
   description = "The contents of etcd/ca.crt."
-  value       = trimspace(data.tls_certificate.etcd_ca_crt[0].content)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_certificate.etcd_ca_crt[0].content) : null
   sensitive   = true
 }
 
@@ -231,40 +231,58 @@ output "etcd_ca_crt" {
 */
 data "tls_public_key" "etcd_ca_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_ca_key[count.index].private_key_pem
+  private_key_pem = trimspace(tls_private_key.etcd_ca_key[count.index].private_key_pem)
 }
 
 output "etcd_ca_key" {
   description = "The contents of etcd/ca.key."
-  value       = trimspace(data.tls_public_key.etcd_ca_key[0].private_key_pem)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_ca_key[0].private_key_pem) : null
+  sensitive   = true
+}
+
+/*
+  etcd - CA Certificate Public Key: etcd/ca.pub
+*/
+output "etcd_ca_pub" {
+  description = "The contents of etcd/ca.pub."
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_ca_key[0].public_key_pem) : null
   sensitive   = true
 }
 
 /*
   etcd Healthcheck Client - Certificate: etcd/healthcheck-client.crt
 */
-data "tls_certificate" "healthcheck_client_crt" {
+data "tls_certificate" "etcd_healthcheck_client_crt" {
   count   = local.create_etcd_certificates
-  content = tls_locally_signed_cert.healthcheck_client_crt[count.index].cert_pem
+  content = trimspace(tls_locally_signed_cert.etcd_healthcheck_client_crt[count.index].cert_pem)
 }
 
-output "healthcheck_client_crt" {
+output "etcd_healthcheck_client_crt" {
   description = "The contents of etcd/healthcheck-client.crt."
-  value       = trimspace(data.tls_certificate.healthcheck_client_crt[0].content)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_certificate.etcd_healthcheck_client_crt[0].content) : null
   sensitive   = true
 }
 
 /*
   etcd Healthcheck Client - Certificate Private Key: etcd/healthcheck-client.key
 */
-data "tls_public_key" "healthcheck_client_key" {
+data "tls_public_key" "etcd_healthcheck_client_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.healthcheck_client_key[count.index].private_key_pem
+  private_key_pem = trimspace(tls_private_key.etcd_healthcheck_client_key[count.index].private_key_pem)
 }
 
-output "healthcheck_client_key" {
+output "etcd_healthcheck_client_key" {
   description = "The contents of etcd/healthcheck-client.key."
-  value       = trimspace(data.tls_public_key.healthcheck_client_key[0].private_key_pem)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_healthcheck_client_key[0].private_key_pem) : null
+  sensitive   = true
+}
+
+/*
+  etcd Healthcheck Client - Certificate Public Key: etcd/healthcheck-client.pub
+*/
+output "etcd_healthcheck_client_pub" {
+  description = "The contents of etcd/healthcheck-client.pub."
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_healthcheck_client_key[0].public_key_pem) : null
   sensitive   = true
 }
 
@@ -273,12 +291,12 @@ output "healthcheck_client_key" {
 */
 data "tls_certificate" "etcd_peer_crt" {
   count   = local.create_etcd_certificates
-  content = tls_locally_signed_cert.etcd_peer_crt[count.index].cert_pem
+  content = trimspace(tls_locally_signed_cert.etcd_peer_crt[count.index].cert_pem)
 }
 
 output "etcd_peer_crt" {
   description = "The contents of etcd/peer.crt."
-  value       = trimspace(data.tls_certificate.etcd_peer_crt[0].content)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_certificate.etcd_peer_crt[0].content) : null
   sensitive   = true
 }
 
@@ -287,12 +305,21 @@ output "etcd_peer_crt" {
 */
 data "tls_public_key" "etcd_peer_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_peer_key[count.index].private_key_pem
+  private_key_pem = trimspace(tls_private_key.etcd_peer_key[count.index].private_key_pem)
 }
 
 output "etcd_peer_key" {
   description = "The contents of etcd/peer.key."
-  value       = trimspace(data.tls_public_key.etcd_peer_key[0].private_key_pem)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_peer_key[0].private_key_pem) : null
+  sensitive   = true
+}
+
+/*
+  etcd Peer - Certificate Public Key: etcd/peer.pub
+*/
+output "etcd_peer_pub" {
+  description = "The contents of etcd/peer.pub."
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_peer_key[0].public_key_pem) : null
   sensitive   = true
 }
 
@@ -301,12 +328,12 @@ output "etcd_peer_key" {
 */
 data "tls_certificate" "etcd_server_crt" {
   count   = local.create_etcd_certificates
-  content = tls_locally_signed_cert.etcd_server_crt[count.index].cert_pem
+  content = trimspace(tls_locally_signed_cert.etcd_server_crt[count.index].cert_pem)
 }
 
 output "etcd_server_crt" {
   description = "The contents of etcd/server.crt."
-  value       = trimspace(data.tls_certificate.etcd_server_crt[0].content)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_certificate.etcd_server_crt[0].content) : null
   sensitive   = true
 }
 
@@ -315,11 +342,20 @@ output "etcd_server_crt" {
 */
 data "tls_public_key" "etcd_server_key" {
   count           = local.create_etcd_certificates
-  private_key_pem = tls_private_key.etcd_server_key[count.index].private_key_pem
+  private_key_pem = trimspace(tls_private_key.etcd_server_key[count.index].private_key_pem)
 }
 
 output "etcd_server_key" {
   description = "The contents of etcd/server.key."
-  value       = trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem)
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem) : null
+  sensitive   = true
+}
+
+/*
+  etcd Server - Certificate Public Key: etcd/server.pub
+*/
+output "etcd_server_pub" {
+  description = "The contents of etcd/server.pub."
+  value       = var.create_etcd_certificates ? trimspace(data.tls_public_key.etcd_server_key[0].public_key_pem) : null
   sensitive   = true
 }
