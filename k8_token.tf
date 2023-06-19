@@ -1,3 +1,8 @@
+/*
+  The purpose of a token is to generate a password that
+    Control Plane(s), Worker(s), and other services can
+    use to join said Cluster(s).
+*/
 resource "random_string" "prefix" {
   length  = 6
   upper   = false

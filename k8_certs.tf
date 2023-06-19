@@ -3,7 +3,7 @@
 */
 locals {
   # Name of the control plane
-  control_plane_vm_name = var.control_node_settings.vm_name
+  control_plane_vm_name = var.control_plane_settings.vm_name
 
   # Internal IP Address of Control Plane (e.g., 10.96.0.1)
   internal_control_plane_ip = "10.96.0.1"
@@ -19,7 +19,7 @@ module "certs" {
 
   cluster_name      = var.cluster_name
   cluster_domain    = var.cluster_domain
-  cluster_namespace = var.cluster_domain
+  cluster_namespace = var.cluster_namespace
 
   control_plane_name        = local.control_plane_vm_name
   internal_control_plane_ip = local.internal_control_plane_ip

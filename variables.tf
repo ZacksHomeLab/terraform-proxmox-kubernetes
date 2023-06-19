@@ -16,7 +16,7 @@ variable "create_etcd_certificates" {
 }
 
 variable "cluster_name" {
-  description = "The name of your Kubernetes Cluster. Default is 'kubernetes'."
+  description = "(String) The name of your Kubernetes Cluster. Default is 'kubernetes'."
   type        = string
   default     = "kubernetes"
 }
@@ -34,28 +34,28 @@ variable "cluster_domain" {
 }
 
 variable "cluster_namespace" {
-  description = "The cluster's namespace. Default is 'default'"
+  description = "(String) The cluster's namespace. Default is 'default'"
   type        = string
   default     = "default"
 }
 
 variable "pod_network" {
-  description = "Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node. Default value is 172.16.0.0/16"
+  description = "(String) Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node. Default value is 172.16.0.0/16"
   type        = string
 
   validation {
-    condition     = can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", var.pod_network))
+    condition     = can(regex("^\\b(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))\\b(\\/([0-9]|[1-2][0-9]|3[0-2]))?$", var.pod_network))
     error_message = "Invalid CIDR format. Please provide a valid CIDR address (e.g., 172.16.0.0/16)."
   }
   default = "172.16.0.0/16"
 }
 
 variable "service_network" {
-  description = "Use alternative range of IP address for service VIPs. Default value is 10.96.0.0/12"
+  description = "(String) Use alternative range of IP address for service VIPs. Default value is 10.96.0.0/12"
   type        = string
 
   validation {
-    condition     = can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", var.service_network))
+    condition     = can(regex("^\\b(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))\\b(\\/([0-9]|[1-2][0-9]|3[0-2]))?$", var.service_network))
     error_message = "Invalid CIDR format. Please provide a valid CIDR address (e.g., 10.96.0.0/12)."
   }
   default = "10.96.0.0/12"
@@ -69,19 +69,19 @@ variable "private_key" {
 }
 
 variable "pods_on_control_plane" {
-  description = "Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false."
+  description = "(Bool) Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false."
   type        = bool
   default     = true
 }
 
 variable "create_control_plane" {
-  description = "Determines if Control Node should be created or destroyed."
+  description = "(Bool) Determines if Control Node should be created or destroyed."
   type        = bool
   default     = true
 }
 
 variable "control_plane_disks" {
-  description = "The disk(s) settings for Control Plane Virtual Machine(s)."
+  description = "[List{Object}] The disk(s) settings for Control Plane Virtual Machine(s)."
   type = list(object({
     storage            = optional(string)
     size               = optional(string)
@@ -106,10 +106,12 @@ variable "control_plane_disks" {
     iops_wr_max        = optional(number)
     iops_wr_max_length = optional(number)
   }))
+
+  default = []
 }
 
 variable "control_plane_networks" {
-  description = "The network adapter(s) affiliated with Control Plane Node(s)."
+  description = "[List{Object}] The network adapter(s) affiliated with Control Plane Node(s)."
   type = list(object({
     bridge    = optional(string)
     model     = optional(string)
@@ -126,10 +128,12 @@ variable "control_plane_networks" {
     rate      = optional(number)
     vlan_tag  = optional(number)
   }))
+
+  default = []
 }
 
 variable "control_plane_settings" {
-  description = "The settings for Control Plane Node(s)."
+  description = "{Object} The settings for Control Plane Node(s)."
   type = object({
     automatic_reboot = optional(bool)
     balloon          = optional(number)
@@ -152,42 +156,29 @@ variable "control_plane_settings" {
     sshkeys          = optional(string)
     sockets          = optional(number)
     tags             = optional(list(string))
+    target_node      = optional(string)
+    template         = optional(string)
+    vm_name          = optional(string, "k8-plane")
     vm_id            = optional(number)
   })
-}
 
-variable "control_plane_vm_name" {
-  description = "The Control Plane Virtual Machine's name. This will also be its hostname."
-  type        = string
-  default     = "kube-plane"
-}
-
-variable "control_plane_target_node" {
-  description = "The name of the target Proxmox node to host said Virtual Machine."
-  type        = string
-  default     = ""
-}
-
-variable "control_plane_template" {
-  description = "The name of the Virtual Machine template to clone the Virtual Machine from."
-  type        = string
-  default     = ""
-}
-
-variable "control_plane_storage" {
-  description = "The name of the storage location in Proxmox to house said Virtual Machine(s)."
-  type        = string
-  default     = ""
+  default = {}
 }
 
 variable "control_plane_count" {
-  description = "The amount of Control Plane(s) Virtual Machine(s) to be created."
+  description = "(Number) The amount of Control Plane(s) Virtual Machine(s) to be created."
   type        = number
-  default     = 1
+
+  validation {
+    condition     = var.control_plane_count >= 0
+    error_message = "Please choose a number equal or greater than 0."
+  }
+
+  default = 1
 }
 
 variable "worker_count" {
-  description = "The amount of Worker Node(s) Virtual Machine(s) to be created."
+  description = "(Number) The amount of Worker Node(s) Virtual Machine(s) to be created."
   type        = number
 
   validation {
@@ -199,13 +190,13 @@ variable "worker_count" {
 }
 
 variable "create_worker" {
-  description = "Determines if Worker Node(s) should be created or destroyed."
+  description = "(Bool) Determines if Worker Node(s) should be created or destroyed."
   type        = bool
   default     = true
 }
 
 variable "worker_settings" {
-  description = "The settings for Worker Node(s)."
+  description = "{Object} The settings for Worker Node(s)."
   type = object({
     automatic_reboot = optional(bool)
     balloon          = optional(number)
@@ -216,7 +207,7 @@ variable "worker_settings" {
     ciwait           = optional(number)
     cores            = optional(number)
     cpu              = optional(string)
-    description      = optional(string, "This Virtual Machine hosts K8's Worker Node.")
+    description      = optional(string, "This Virtual Machine is a K8 Worker Node.")
     hotplug          = optional(string)
     memory           = optional(number)
     nameserver       = optional(string)
@@ -228,12 +219,17 @@ variable "worker_settings" {
     sshkeys          = optional(string)
     sockets          = optional(number)
     tags             = optional(list(string))
+    target_node      = optional(string)
+    template         = optional(string)
+    vm_name          = optional(string, "k8-worker")
     vm_id            = optional(number)
   })
+
+  default = {}
 }
 
 variable "worker_disks" {
-  description = "The disk(s) of the Worker Node(s)."
+  description = "[List{Object}] The disk(s) of the Worker Node(s)."
   type = list(object({
     storage            = optional(string)
     size               = optional(string)
@@ -258,10 +254,12 @@ variable "worker_disks" {
     iops_wr_max        = optional(number)
     iops_wr_max_length = optional(number)
   }))
+
+  default = []
 }
 
 variable "worker_networks" {
-  description = "The network adapters affiliated with the Worker Node(s)."
+  description = "[List{Object}] The network adapters affiliated with the Worker Node(s)."
   type = list(object({
     bridge    = optional(string)
     model     = optional(string)
@@ -278,67 +276,42 @@ variable "worker_networks" {
     rate      = optional(number)
     vlan_tag  = optional(number)
   }))
-}
 
-variable "worker_vm_name" {
-  description = "The Control Plane Virtual Machine's name. This will also be its hostname."
-  type        = string
-  default     = "worker"
-}
-
-variable "worker_template" {
-  description = "The name of the Virtual Machine template to clone the Virtual Machine from."
-  type        = string
-  default     = ""
-}
-
-variable "worker_target_node" {
-  description = "The name of the target Proxmox node to host said Virtual Machine."
-  type        = string
-  default     = ""
-}
-
-variable "worker_storage" {
-  description = "The name of the storage location in Proxmox to house said Virtual Machine(s)."
-  type        = string
-  default     = ""
+  default = []
 }
 
 variable "settings" {
-  description = "The default settings for Virtual Machine(s)."
+  description = "{Object} The default settings for Virtual Machine(s)."
   type = object({
     automatic_reboot = optional(bool, true)
     balloon          = optional(number, 0)
     bios             = optional(string, "seabios")
-    cicustom         = optional(string, "")
+    cicustom         = optional(string)
     cipassword       = optional(string)
     ciuser           = optional(string)
     ciwait           = optional(number, 30)
-    cores            = optional(number, 2)
+    cores            = optional(number, 1)
     cpu              = optional(string, "host")
-    description      = optional(string, "This is a Virtual Machine!")
+    description      = optional(string, "This is a Virtual Machine.")
     hotplug          = optional(string, "cpu,network,disk,usb")
     memory           = optional(number, 2048)
-    nameserver       = optional(string, "")
-    onboot           = optional(bool, true)
-    oncreate         = optional(bool, true)
-    pool             = optional(string, "")
+    nameserver       = optional(string)
+    onboot           = optional(bool)
+    oncreate         = optional(bool)
+    pool             = optional(string)
     scsihw           = optional(string, "virtio-scsi-pci")
-    searchdomain     = optional(string, "")
-    sshkeys          = optional(string, "")
+    searchdomain     = optional(string)
+    sshkeys          = optional(string)
     sockets          = optional(number, 1)
-    tags             = optional(list(string), [])
+    tags             = optional(list(string))
     vm_id            = optional(number, 0)
   })
 
-  validation {
-    condition     = var.settings.vm_id != 0
-    error_message = "To set a default vm_id, you must set it to 0."
-  }
+  default = {}
 }
 
 variable "disks" {
-  description = "The default disk(s) for all Virtual Machines."
+  description = "[List{Object}] The default disk(s) for all Virtual Machines."
   type = list(object({
     storage            = optional(string)
     size               = optional(string, "10G")
@@ -363,10 +336,12 @@ variable "disks" {
     iops_wr_max        = optional(number, 0)
     iops_wr_max_length = optional(number, 0)
   }))
+
+  default = []
 }
 
 variable "networks" {
-  description = "The network adapter(s) affiliated with the Control Plane Virtual Machine(s)."
+  description = "[List{Object}] The network adapter(s) affiliated with the Control Plane Virtual Machine(s)."
   type = list(object({
     bridge    = optional(string, "vmbr0")
     model     = optional(string, "virtio")
@@ -383,19 +358,16 @@ variable "networks" {
     rate      = optional(number, 0)
     vlan_tag  = optional(number, -1)
   }))
+
+  default = []
 }
 
 variable "target_node" {
-  description = "The default target node for all Virtual Machines."
+  description = "(String) The default target node for all Virtual Machines."
   type        = string
 }
 
 variable "template" {
-  description = "The default name of the Virtual Machine template to clone the Virtual Machine from."
-  type        = string
-}
-
-variable "storage" {
-  description = "The default storage location to house said Virtual Machine(s)."
+  description = "(String) The default name of the Virtual Machine template to clone the Virtual Machine from."
   type        = string
 }

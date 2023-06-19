@@ -4,11 +4,18 @@ export DEBIAN_FRONTEND=noninteractive
 
 ips=$(hostname -I)
 first_ip=$(echo $IP | cut -d' ' -f1)
-pod_network="10.200.0.0/16"
+
+pod_network="172.16.0.0/16"
+service_network="10.96.0.0/12"
+
+cluster_domain="zackshomelab.com"
+cluster_name="pluto"
+cluster_namespace="default"
+
 hostname=$(hostname | tr '[:upper:]' '[:lower:]')
 user_id=$(id -u)
 
-if [ $user_id -ne 0 ]; then
+if [ $user_id -ne 0 ]; then$
     echo "Need to run with sudo privilege"
     exit 1
 fi
@@ -217,7 +224,9 @@ function install_k8() {
 function init_control_node() {
   kubeadm init \
     --pod-network-cidr=$pod_network \
-        --token "4wck6f.m71rq5ndmn13hmso" \
+    --service-cidr=$service_network \
+    --service-dns-domain=$cluster_domain \
+        --token "8d2hil.y25jurafkn12t41c" \
     --token-ttl 0 \
         --cri-socket=unix:///var/run/cri-dockerd.sock
 

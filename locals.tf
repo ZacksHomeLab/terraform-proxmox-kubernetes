@@ -1,7 +1,7 @@
+/*
+  This file computers all of the necessary local variables for k8_infra.tf.
+*/
 locals {
-  control_plane_count = var.create_control_plane && var.control_plane_count > 0 ? var.control_plane_count : 0
-  worker_count        = var.create_worker && var.worker_count > 0 ? var.worker_count : 0
-
   /*
     If the user decides to add more than one disk as the default for all Virtual Machines.
       There needs to be a variable to track the 'additional' drives that should be added
@@ -126,4 +126,7 @@ locals {
   worker_settings = local.worker_count > 0 ? { for key, value in var.worker_settings :
     key => (value != null ? value : try(lookup(var.settings, "${key}", null), null))
   } : null
+
+  control_plane_target_node = local.control_plane_settings.target_node != null ? local.control_plane_settings.target_node : var.target_node
+  control_plane_template    = local.control_plane_settings.template != null ? local.control_plane_settings.template : var.template
 }
