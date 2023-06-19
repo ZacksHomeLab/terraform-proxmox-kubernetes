@@ -4,11 +4,18 @@ export DEBIAN_FRONTEND=noninteractive
 
 ips=$(hostname -I)
 first_ip=$(echo $IP | cut -d' ' -f1)
-pod_network="10.200.0.0/16"
+
+pod_network="${pod_network}"
+service_network="${service_network}"
+
+cluster_domain="${cluster_domain}"
+cluster_name="${cluster_name}"
+cluster_namespace="${cluster_namespace}"
+
 hostname=$(hostname | tr '[:upper:]' '[:lower:]')
 user_id=$(id -u)
 
-if [ $user_id -ne 0 ]; then
+if [ $user_id -ne 0 ]; then$
     echo "Need to run with sudo privilege"
     exit 1
 fi
@@ -141,7 +148,7 @@ function prepare_env() {
 
   # Install required packages
   echo "prepare_env: Installing required packages..."
-  install_packages curl gnupg lsb-release git wget
+  install_packages curl gnupg lsb-release git wget jq
 
   # Disable Swap
   echo "prepare_env: Disabling swap..."
@@ -217,6 +224,8 @@ function install_k8() {
 function init_control_node() {
   kubeadm init \
     --pod-network-cidr=$pod_network \
+    --service-cidr=$service_network \
+    --service-dns-domain=$cluster_domain \
     %{ if kube_token != null ~}
     --token "${kube_token}" \
     --token-ttl 0 \
@@ -248,8 +257,8 @@ prepare_env
 install_docker
 install_docker_runtime
 install_k8
-init_control_node
-init_pod_network
+#init_control_node
+#init_pod_network
 %{ if pods_on_control_node ~}
-deploy_on_control_plane
+#deploy_on_control_plane
 %{ endif ~}

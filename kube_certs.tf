@@ -9,64 +9,6 @@ locals {
   internal_control_plane_ip = "10.96.0.1"
   # External IP Address of Control Plane (e.g., 192.168.2.126)
   external_control_plane_ip = "192.168.2.126"
-
-  primary_cert_files = var.create_certificates ? [
-    {
-      filename = "ca.key"
-      content  = module.certs.ca_key
-    }
-  ] : []
-  /*
-  certificate_files = var.generate_ca_certificates ? [
-    {
-      filename = "ca.key"
-      content  = tls_private_key.kube_ca_priv_key.private_key_pem
-    },
-    {
-      filename = "ca.crt"
-      content  = tls_self_signed_cert.kube_ca_cert.cert_pem
-    },
-    {
-      filename = "apiserver.key"
-      content  = tls_private_key.kube_api_server_priv_key.private_key_pem
-    },
-    {
-      filename = "apiserver.crt"
-      content  = tls_locally_signed_cert.kube_api_server_cert.cert_pem
-    },
-    {
-      filename = "apiserver-kubelet-client.key"
-      content  = tls_private_key.kube_api_client_private_key.private_key_pem
-    },
-    {
-      filename = "apiserver-kubelet-client.crt"
-      content  = tls_locally_signed_cert.kube_api_server_client_cert.cert_pem
-    },
-    {
-      filename = "sa.key"
-      content  = tls_private_key.kube_sa_private_key.private_key_pem
-    },
-    {
-      filename = "sa.pub"
-      content  = data.tls_public_key.sa_public_key.public_key_pem
-    },
-    {
-      filename = "front-proxy-ca.key"
-      content  = tls_private_key.kube_front_proxy_ca_priv_key.private_key_pem
-    },
-    {
-      filename = "front-proxy-ca.crt"
-      content  = tls_self_signed_cert.kube_front_proxy_ca_cert.cert_pem
-    },
-    {
-      filename = "front-proxy-client.key"
-      content  = tls_private_key.kube_front_proxy_client_priv_key.private_key_pem
-    },
-    {
-      filename = "front-proxy-client.crt"
-      content  = tls_locally_signed_cert.front_proxy_client_cert.cert_pem
-    },
-  ] : []*/
 }
 
 module "certs" {

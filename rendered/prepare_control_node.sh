@@ -141,7 +141,7 @@ function prepare_env() {
 
   # Install required packages
   echo "prepare_env: Installing required packages..."
-  install_packages curl gnupg lsb-release git wget
+  install_packages curl gnupg lsb-release git wget jq
 
   # Disable Swap
   echo "prepare_env: Disabling swap..."
@@ -217,7 +217,7 @@ function install_k8() {
 function init_control_node() {
   kubeadm init \
     --pod-network-cidr=$pod_network \
-        --token "2x5apz.gu22wz8ktlfl3wkz" \
+        --token "4wck6f.m71rq5ndmn13hmso" \
     --token-ttl 0 \
         --cri-socket=unix:///var/run/cri-dockerd.sock
 
@@ -246,6 +246,6 @@ prepare_env
 install_docker
 install_docker_runtime
 install_k8
-init_control_node
-init_pod_network
-deploy_on_control_plane
+#init_control_node
+#init_pod_network
+#deploy_on_control_plane
