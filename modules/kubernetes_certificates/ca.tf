@@ -43,12 +43,12 @@ resource "tls_self_signed_cert" "ca_crt" {
 */
 data "tls_certificate" "ca_crt" {
   count   = local.create_certificates
-  content = trimspace(tls_self_signed_cert.ca_crt[count.index].cert_pem)
+  content = tls_self_signed_cert.ca_crt[count.index].cert_pem
 }
 
 output "ca_crt" {
   description = "The contents of ca.crt."
-  value       = var.create_certificates ? trimspace(data.tls_certificate.ca_crt[0].content) : null
+  value       = var.create_certificates ? data.tls_certificate.ca_crt[0].certificates[0].cert_pem : null
   sensitive   = true
 }
 
@@ -57,12 +57,12 @@ output "ca_crt" {
 */
 data "tls_public_key" "ca_key" {
   count           = local.create_certificates
-  private_key_pem = trimspace(tls_private_key.ca_key[count.index].private_key_pem)
+  private_key_pem = tls_private_key.ca_key[count.index].private_key_pem
 }
 
 output "ca_key" {
   description = "The contents of ca.key."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.ca_key[0].private_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.ca_key[0].private_key_pem : null
   sensitive   = true
 }
 
@@ -71,6 +71,6 @@ output "ca_key" {
 */
 output "ca_pub" {
   description = "The contents of ca.pub."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.ca_key[0].public_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.ca_key[0].public_key_pem : null
   sensitive   = true
 }

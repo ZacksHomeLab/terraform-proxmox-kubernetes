@@ -1,8 +1,6 @@
 locals {
-  upload_certs               = (var.create_certificates || var.create_etcd_certificates) && local.control_plane_count > 0 ? 1 : 0
-  upload_certs_script_source = "${path.module}/rendered/import_ssl_files.sh"
-  upload_certs_script_dest   = "/tmp/${basename(local.upload_certs_script_source)}"
-
+  import_certs                 = (var.create_certificates || var.create_etcd_certificates) && local.control_plane_count > 0 ? local.control_plane_count : 0
+  cert_destinations            = local.import_certs > 0 ? join(" ", module.certs.all_certificates_destinations) : ""
   prepare_node_script_template = "${path.module}/templates/prepare_control_node.sh.tftpl"
   prepare_node_script_rendered = "${path.module}/rendered/prepare_control_node.sh"
   prepare_node_script_dest     = "/tmp/${basename(local.prepare_node_script_rendered)}"
@@ -24,20 +22,22 @@ resource "local_file" "prepare_control_node_script" {
     pod_network          = var.pod_network
     service_network      = var.service_network
     kube_token           = local.kube_token
+    import_ssl           = var.create_certificates
+    cert_destinations    = local.cert_destinations
   })
   filename = local.prepare_node_script_rendered
 }
 
 # Import shell script into resources
 resource "null_resource" "setup_control_node" {
-  count      = 0
-  depends_on = [module.control_planes]
+  count      = local.control_plane_count
+  depends_on = [module.control_planes, local_file.prepare_control_node_script, module.certs]
 
   connection {
     type        = "ssh"
     user        = local.ciuser
     private_key = local.private_key
-    host        = join("", module.control_planes[count.index].proxmox_vm_ip)
+    host        = module.control_planes[count.index].ip
   }
 
   provisioner "file" {
@@ -48,52 +48,12 @@ resource "null_resource" "setup_control_node" {
   provisioner "remote-exec" {
     inline = [
       "sudo chmod +x ${local.prepare_node_script_dest}",
-      "sudo ${local.prepare_node_script_dest}",
-      "sudo rm ${local.prepare_node_script_dest}"
+      (var.create_certificates ? "sudo ${local.prepare_node_script_dest} ${jsonencode(module.certs.all_certificates)}" : "sudo ${local.prepare_node_script_dest}")
+      #"sudo rm ${local.prepare_node_script_dest}"
     ]
   }
 
   triggers = {
-    #vm_id = join("", module.infrastructure[count.index].proxmox_vm_id)
-  }
-}
-
-/*
-  Upload kubernetes SSL certificates to their respected location(s) on the control node.
-*/
-resource "null_resource" "upload_certs" {
-  count = 0
-
-  depends_on = [null_resource.setup_control_node, module.certs]
-
-  connection {
-    type        = "ssh"
-    user        = local.ciuser
-    private_key = local.private_key
-    host        = join("", module.control_planes[count.index].proxmox_vm_ip)
-  }
-
-  provisioner "file" {
-    source      = local.upload_certs_script_source
-    destination = local.upload_certs_script_dest
-  }
-
-  /*
-    Using a for_each would have created 20+ resources, and each for_each would
-      create a new SSH connection to said node. To upload all of the certificates
-      in one connection, I came up with this one-liner.
-
-    Doing this also allows me to use 'count' with this resource. You can't use count
-      and for_each within the same resource.
-  */
-  provisioner "remote-exec" {
-    inline = [
-      "sudo chmod +x ${local.upload_certs_script_dest}",
-      "sudo ${local.upload_certs_script_dest} '${jsonencode(module.certs.all_certificates)}'",
-      "sudo rm ${local.upload_certs_script_dest}"
-    ]
-  }
-  triggers = {
-    #vm_id = join("", module.infrastructure[count.index].proxmox_vm_id)
+    vmid = module.control_planes[count.index].vmid
   }
 }

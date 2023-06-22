@@ -52,94 +52,94 @@ locals {
   primary_files = var.create_certificates ? flatten([
     {
       destination = "${local.cert_directory}/ca.crt"
-      content     = trimspace(data.tls_certificate.ca_crt[0].content)
+      content     = data.tls_certificate.ca_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.cert_directory}/ca.key"
-      content     = trimspace(data.tls_public_key.ca_key[0].private_key_pem)
+      content     = data.tls_public_key.ca_key[0].private_key_pem
     },
     {
       destination = "${local.cert_directory}/apiserver.crt"
-      content     = trimspace(data.tls_certificate.apiserver_crt[0].content)
+      content     = data.tls_certificate.apiserver_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.cert_directory}/apiserver.key"
-      content     = trimspace(data.tls_public_key.apiserver_key[0].private_key_pem)
+      content     = data.tls_public_key.apiserver_key[0].private_key_pem
     },
     {
       destination = "${local.cert_directory}/apiserver-kubelet-client.crt"
-      content     = trimspace(data.tls_certificate.apiserver_kubelet_client_crt[0].content)
+      content     = data.tls_certificate.apiserver_kubelet_client_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.cert_directory}/apiserver-kubelet-client.key"
-      content     = trimspace(data.tls_public_key.apiserver_kubelet_client_key[0].private_key_pem)
+      content     = data.tls_public_key.apiserver_kubelet_client_key[0].private_key_pem
     },
     {
-      destination = "${local.cert_directory}/front-proxy.crt"
-      content     = trimspace(data.tls_certificate.front_proxy_crt[0].content)
+      destination = "${local.cert_directory}/front-proxy-ca.crt"
+      content     = data.tls_certificate.front_proxy_crt[0].certificates[0].cert_pem
     },
     {
-      destination = "${local.cert_directory}/front-proxy.key"
-      content     = trimspace(data.tls_public_key.front_proxy_key[0].private_key_pem)
+      destination = "${local.cert_directory}/front-proxy-ca.key"
+      content     = data.tls_public_key.front_proxy_key[0].private_key_pem
     },
     {
       destination = "${local.cert_directory}/front-proxy-client.crt"
-      content     = trimspace(data.tls_certificate.front_proxy_client_crt[0].content)
+      content     = data.tls_certificate.front_proxy_client_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.cert_directory}/front-proxy-client.key"
-      content     = trimspace(data.tls_public_key.front_proxy_client_key[0].private_key_pem)
+      content     = data.tls_public_key.front_proxy_client_key[0].private_key_pem
     },
     {
       destination = "${local.cert_directory}/sa.key"
-      content     = trimspace(data.tls_public_key.sa_key[0].private_key_pem)
+      content     = data.tls_public_key.sa_key[0].private_key_pem
     },
     {
       destination = "${local.cert_directory}/sa.pub"
-      content     = trimspace(data.tls_public_key.sa_key[0].public_key_pem)
+      content     = data.tls_public_key.sa_key[0].public_key_pem
     }
   ]) : []
 
   etcd_files = var.create_etcd_certificates ? flatten([
     {
       destination = "${local.cert_directory}/apiserver-etcd-client.crt"
-      content     = trimspace(data.tls_certificate.apiserver_etcd_client_crt[0].content)
+      content     = data.tls_certificate.apiserver_etcd_client_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.cert_directory}/apiserver-etcd-client.key"
-      content     = trimspace(data.tls_public_key.apiserver_etcd_client_key[0].private_key_pem)
+      content     = data.tls_public_key.apiserver_etcd_client_key[0].private_key_pem
     },
     {
       destination = "${local.etcd_cert_directory}/ca.crt"
-      content     = trimspace(data.tls_certificate.etcd_ca_crt[0].content)
+      content     = data.tls_certificate.etcd_ca_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.etcd_cert_directory}/ca.key"
-      content     = trimspace(data.tls_public_key.etcd_ca_key[0].private_key_pem)
+      content     = data.tls_public_key.etcd_ca_key[0].private_key_pem
     },
     {
       destination = "${local.etcd_cert_directory}/healthcheck-client.crt"
-      content     = trimspace(data.tls_certificate.etcd_healthcheck_client_crt[0].content)
+      content     = data.tls_certificate.etcd_healthcheck_client_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.etcd_cert_directory}/healthcheck-client.key"
-      content     = trimspace(data.tls_public_key.etcd_healthcheck_client_key[0].private_key_pem)
+      content     = data.tls_public_key.etcd_healthcheck_client_key[0].private_key_pem
     },
     {
       destination = "${local.etcd_cert_directory}/peer.crt"
-      content     = trimspace(data.tls_certificate.etcd_peer_crt[0].content)
+      content     = data.tls_certificate.etcd_peer_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.etcd_cert_directory}/peer.key"
-      content     = trimspace(data.tls_public_key.etcd_peer_key[0].private_key_pem)
+      content     = data.tls_public_key.etcd_peer_key[0].private_key_pem
     },
     {
       destination = "${local.etcd_cert_directory}/server.crt"
-      content     = trimspace(data.tls_certificate.etcd_server_crt[0].content)
+      content     = data.tls_certificate.etcd_server_crt[0].certificates[0].cert_pem
     },
     {
       destination = "${local.etcd_cert_directory}/server.key"
-      content     = trimspace(data.tls_public_key.etcd_server_key[0].private_key_pem)
+      content     = data.tls_public_key.etcd_server_key[0].private_key_pem
     }
   ]) : []
 
@@ -149,9 +149,9 @@ locals {
     local.etcd_files
   ))
 
-  primary_cert_files = { for i, cert in local.primary_files : tostring(i) => cert }
-  etcd_cert_files    = { for i, cert in local.etcd_files : tostring(i) => cert }
+  primary_cert_files = { for i, cert in local.primary_files : tostring(i) => "${cert}" }
+  etcd_cert_files    = { for i, cert in local.etcd_files : tostring(i) => "${cert}" }
 
   # Convert all_files into a map, which can be used for for-each resources.
-  all_cert_files = { for i, cert in local.all_files : tostring(i) => cert }
+  all_cert_files = { for i, cert in local.all_files : tostring(i) => "${cert}" }
 }

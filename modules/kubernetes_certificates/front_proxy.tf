@@ -69,7 +69,7 @@ resource "tls_cert_request" "front_proxy_client_csr" {
 resource "tls_locally_signed_cert" "front_proxy_client_crt" {
   count              = local.create_certificates
   cert_request_pem   = tls_cert_request.front_proxy_client_csr[count.index].cert_request_pem
-  ca_cert_pem        = data.tls_certificate.front_proxy_crt[count.index].content
+  ca_cert_pem        = data.tls_certificate.front_proxy_crt[count.index].certificates[count.index].cert_pem
   ca_private_key_pem = data.tls_public_key.front_proxy_key[count.index].private_key_pem
 
   is_ca_certificate = false
@@ -94,12 +94,12 @@ resource "tls_locally_signed_cert" "front_proxy_client_crt" {
 */
 data "tls_certificate" "front_proxy_crt" {
   count   = local.create_certificates
-  content = trimspace(tls_self_signed_cert.front_proxy_crt[count.index].cert_pem)
+  content = tls_self_signed_cert.front_proxy_crt[count.index].cert_pem
 }
 
 output "front_proxy_crt" {
   description = "The contents of front-proxy.crt."
-  value       = var.create_certificates ? trimspace(data.tls_certificate.front_proxy_crt[0].content) : null
+  value       = var.create_certificates ? data.tls_certificate.front_proxy_crt[0].certificates[0].cert_pem : null
   sensitive   = true
 }
 
@@ -108,12 +108,12 @@ output "front_proxy_crt" {
 */
 data "tls_public_key" "front_proxy_key" {
   count           = local.create_certificates
-  private_key_pem = trimspace(tls_private_key.front_proxy_key[count.index].private_key_pem)
+  private_key_pem = tls_private_key.front_proxy_key[count.index].private_key_pem
 }
 
 output "front_proxy_key" {
   description = "The contents of front-proxy.key."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.front_proxy_key[0].private_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.front_proxy_key[0].private_key_pem : null
   sensitive   = true
 }
 
@@ -122,7 +122,7 @@ output "front_proxy_key" {
 */
 output "front_proxy_pub" {
   description = "The contents of front-proxy.pub."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.front_proxy_key[0].public_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.front_proxy_key[0].public_key_pem : null
   sensitive   = true
 }
 
@@ -131,12 +131,12 @@ output "front_proxy_pub" {
 */
 data "tls_certificate" "front_proxy_client_crt" {
   count   = local.create_certificates
-  content = trimspace(tls_locally_signed_cert.front_proxy_client_crt[count.index].cert_pem)
+  content = tls_locally_signed_cert.front_proxy_client_crt[count.index].cert_pem
 }
 
 output "front_proxy_client_crt" {
   description = "The contents of front-proxy-client.crt."
-  value       = var.create_certificates ? trimspace(data.tls_certificate.front_proxy_client_crt[0].content) : null
+  value       = var.create_certificates ? data.tls_certificate.front_proxy_client_crt[0].certificates[0].cert_pem : null
   sensitive   = true
 }
 
@@ -145,12 +145,12 @@ output "front_proxy_client_crt" {
 */
 data "tls_public_key" "front_proxy_client_key" {
   count           = local.create_certificates
-  private_key_pem = trimspace(tls_private_key.front_proxy_client_key[count.index].private_key_pem)
+  private_key_pem = tls_private_key.front_proxy_client_key[count.index].private_key_pem
 }
 
 output "front_proxy_client_key" {
   description = "The contents of front-proxy-client.key."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.front_proxy_client_key[0].private_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.front_proxy_client_key[0].private_key_pem : null
   sensitive   = true
 }
 
@@ -159,6 +159,6 @@ output "front_proxy_client_key" {
 */
 output "front_proxy_client_pub" {
   description = "The contents of front-proxy-client.pub."
-  value       = var.create_certificates ? trimspace(data.tls_public_key.front_proxy_client_key[0].public_key_pem) : null
+  value       = var.create_certificates ? data.tls_public_key.front_proxy_client_key[0].public_key_pem : null
   sensitive   = true
 }

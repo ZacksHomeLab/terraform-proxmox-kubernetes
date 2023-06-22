@@ -5,7 +5,7 @@ locals {
 
 module "control_planes" {
   source  = "ZacksHomeLab/cloudinit-vm/proxmox"
-  version = "1.6.2"
+  version = "1.7.0"
 
   count = local.control_plane_count
 
@@ -43,8 +43,3 @@ module "control_planes" {
   vm_name          = local.control_plane_settings.vm_name
   vmid             = local.control_plane_settings.vm_id
 }
-
-output "control_planes" {
-  value = module.control_planes
-}
-

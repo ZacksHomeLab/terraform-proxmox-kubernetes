@@ -2,6 +2,13 @@
 
 export DEBIAN_FRONTEND=noninteractive
 
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3 15
+exec 1>>/tmp/log.out 2>&1
+
+apt_lock_max_wait_time=600
+apt_retry_interval=10
+
 ips=$(hostname -I)
 first_ip=$(echo $IP | cut -d' ' -f1)
 
@@ -15,8 +22,12 @@ cluster_namespace="${cluster_namespace}"
 hostname=$(hostname | tr '[:upper:]' '[:lower:]')
 user_id=$(id -u)
 
-if [ $user_id -ne 0 ]; then$
-    echo "Need to run with sudo privilege"
+ssl_data=$1
+ssl_data_destination="${cert_destinations}"
+
+# Pre-Check: Verify if sudo
+if [ $user_id -ne 0 ]; then
+    echo "Pre-Check: This script requires sudo privilege to run."
     exit 1
 fi
 
@@ -27,13 +38,13 @@ if [ "$os_type" = "debian" ]; then
   # Check if apt is installed
   get_package_provider=$(command -v apt)
   if [ -n "$($get_package_provider | tr -d '[:space:]')" ]; then
-    package_provider="apt"
+    package_provider="apt-get"
   else
 
     # Check if apt-get is installed
-    get_package_provider=$(command -v apt-get)
+    get_package_provider=$(command -v apt)
     if [ -n "$($get_package_provider | tr -d '[:space:]')" ]; then
-      package_provider="apt-get"
+      package_provider="apt"
     else
 
       # Neither apt or apt-get exist
@@ -43,6 +54,26 @@ if [ "$os_type" = "debian" ]; then
   fi
 fi
 
+function is_apt_lock() {
+  lsof -t "/var/lib/apt/lists/lock" >/dev/null 2>&1 ||
+  lsof -t "/var/lib/dpkg/lock-frontend" >/dev/null 2>&1 ||
+  lsof -t "/var/lib/dpkg/lock" >/dev/null 2>&1
+}
+
+function wait_for_apt_unlock() {
+
+  wait_time=0
+  while is_apt_lock; do
+    if [ "$wait_time" -ge "$apt_lock_max_wait_time" ]; then
+      echo "Timeout reached. Lock file is still present."
+      exit 1
+    fi
+    echo "Waiting for apt lock file to be released..."
+    sleep $apt_retry_interval
+    wait_time=$((wait_time + $apt_retry_interval))
+  done
+}
+
 function upgrade_packages() {
 
   case $package_provider in
@@ -51,7 +82,9 @@ function upgrade_packages() {
       ;;
 
     apt-get)
-        apt-get -qqy upgrade
+        # The timeout is to prevent E: Unable to acquire the dpkg frontend lock
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 upgrade
       ;;
 
     *)
@@ -74,7 +107,8 @@ function update_packages() {
       ;;
 
     apt-get)
-        apt-get -qqy update
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 update
       ;;
 
     *)
@@ -98,7 +132,8 @@ function install_packages() {
       ;;
 
     apt-get)
-        apt-get -qqy install $packages
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 install $packages
       ;;
 
     *)
@@ -122,7 +157,8 @@ function remove_packages() {
       ;;
 
     apt-get)
-        apt-get -qqy remove $packages
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 remove $packages
       ;;
 
     *)
@@ -221,6 +257,65 @@ function install_k8() {
   install_packages kubelet kubeadm kubectl
 }
 
+function import_ssl_certs() {
+
+  # Add quotes around the provided JSON data from Terraform. This is to prevent jq from getting an error
+  # as it expects quotes around each key=value.
+  json_data=$(echo $ssl_data | sed -E 's/([0-9]+):(\{[^}]+\})/"\1":\2/g; s/([a-zA-Z0-9]+):([^,}]+)/"\1":"\2"/g')
+
+  for i in $(echo $json_data | jq -r 'keys[]'); do
+    content=$(echo "$json_data" | jq -r ".[\"$i\"].content")
+    destination=$(echo "$json_data" | jq -r ".[\"$i\"].destination")
+    directory=$(dirname $destination)
+
+    if [ ! -d $directory ]; then
+      mkdir --parents $directory
+
+      if [ $? -ne 0 ]; then
+        echo "import_ssl_certs: Error creating directory $directory"
+        exit 1
+      fi
+    fi
+
+    echo $content | tee $destination &>1
+
+    if [ $? -ne 0 ]; then
+      echo "import_ssl_certs: Error adding content to destination $destination"
+      exit 1
+    fi
+  done
+}
+
+function verify_ssl_certs() {
+
+  echo "verify_ssl_certs: Verifying if certificate files need to be modified."
+
+  if [ -z "$ssl_data_destination" ]; then
+    echo "verify_ssl_certs: The script is expecting certificate destinations but none exist. Stopping."
+    exit 1
+  fi
+
+  # If number of lines equals one, add new lines based on certificate data
+  for file in $ssl_data_destination; do
+    if [ -s "$file" ]; then
+      if [ $(sed -n '$=' $file) -eq 1 ]; then
+        # Retrieve contents of file
+        # separate the end of the certificate with the start of ----END
+        # set the width of each line to 64 characters
+        # remove empty whitespace lines and remove lines that start with a space
+        # save the file
+        #cat $file | sed -E 's/= -/=\n-/g' | fold -s -w 64 | sed -e '/^ $/d' -e '/^\s/d' | tee $file &>1
+        cat $file | sed -e 's/\s-----END/\n-----END/g' -e 's/-----\s/-----\n/g' | fold -s -w 64 | sed -e '/^ $/d' -e 's/^\s//g' | tee $file &>1
+
+        if [ $? -ne 0 ]; then
+          echo "verify_ssl_certs: Error verifying SSL certificate $file"
+          exit 1
+        fi
+      fi
+    fi
+  done
+}
+
 function init_control_node() {
   kubeadm init \
     --pod-network-cidr=$pod_network \
@@ -253,12 +348,17 @@ function deploy_on_master() {
   kubectl taint nodes $hostname node-role.kubernetes.io/master=:NoSchedule --overwrite
 }
 
+wait_for_apt_unlock
 prepare_env
 install_docker
 install_docker_runtime
 install_k8
-#init_control_node
-#init_pod_network
+%{ if import_ssl ~}
+import_ssl_certs
+verify_ssl_certs
+%{ endif ~}
+init_control_node
+init_pod_network
 %{ if pods_on_control_node ~}
 #deploy_on_control_plane
 %{ endif ~}
