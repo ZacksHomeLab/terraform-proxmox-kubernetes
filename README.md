@@ -1,6 +1,6 @@
-# terraform-proxmox-k3s
+# terraform-proxmox-kubernetes
 
-Deploying a Kubernetes cluster can be overwhelming. Documentation I found online skips through the setup process and just shows the finished product. This module does that as well, to a degree...BUT, you can add the necessary features granularly. This README will walk you through deploying different variations of Kubernetes clusters. If you know what you're doing, you may use the ***examples*** directory.
+WIP
 
 # Getting Started
 
