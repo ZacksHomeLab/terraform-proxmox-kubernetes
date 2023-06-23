@@ -37,4 +37,8 @@ credentials*
 # Terraform variables
 *.tfvars
 
+# Rendered files
+rendered/prepare_control_node.sh
+rendered/*
+
 redo.sh
