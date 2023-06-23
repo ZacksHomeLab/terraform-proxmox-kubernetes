@@ -6,9 +6,6 @@ exec 3>&1 4>&2
 trap 'exec 2>&4 1>&3' 0 1 2 3 15
 exec 1>>/tmp/log.out 2>&1
 
-apt_lock_max_wait_time=600
-apt_retry_interval=10
-
 ips=$(hostname -I)
 first_ip=$(echo $IP | cut -d' ' -f1)
 
@@ -25,34 +22,90 @@ user_id=$(id -u)
 ssl_data=$1
 ssl_data_destination="${cert_destinations}"
 
-# Pre-Check: Verify if sudo
-if [ $user_id -ne 0 ]; then
-    echo "Pre-Check: This script requires sudo privilege to run."
-    exit 1
-fi
+function pre_check() {
 
-# Determine our package provider
-os_type=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
-if [ "$os_type" = "debian" ]; then
+  echo "pre_check: Validating required variables are set."
 
-  # Check if apt is installed
-  get_package_provider=$(command -v apt)
-  if [ -n "$($get_package_provider | tr -d '[:space:]')" ]; then
-    package_provider="apt-get"
+  %{ if import_ssl ~}
+  if [ -n $("$ssl_data_destination" | tr -d '[:space:]') ]; then
+    echo "pre_check: SSL Certificate Destinations exist."
   else
+    echo "pre_check: The script is expecting SSL Certificate Destinations but none exist. Stopping."
+    exit 1
+  fi
+  %{ endif ~}
+
+  # Pre-Check: Verify if sudo
+  if [ $user_id -eq 0 ]; then
+    echo "pre_check: Running as sudo."
+  else
+    echo "pre_check: This script requires sudo privilege to run."
+    exit 1
+  fi
+
+  if [ -n "$pod_network" ]; then
+    echo "pre_check: Pod network is set."
+  else
+    echo "pre_check: Pod network was not set. Stopping."
+    exit 1
+  fi
+
+  if [ -n "$service_network" ]; then
+    echo "pre_check: Service network is set."
+  else
+    echo "pre_check: Service network was not set. Stopping."
+    exit 1
+  fi
+
+  if [ -n "$cluster_domain" ]; then
+    echo "pre_check: Cluster Domain is set."
+  else
+    echo "pre_check: Cluster Domain was not set. Stopping."
+    exit 1
+  fi
+
+  if [ -n "$cluster_name" ]; then
+    echo "pre_check: Cluster Name is set."
+  else
+    echo "pre_check: Cluster Name was not set. Stopping."
+    exit 1
+  fi
+
+  if [ -n "$cluster_namespace" ]; then
+    echo "pre_check: Cluster NameSpace is set."
+  else
+    echo "pre_check: Cluster NameSpace was not set. Stopping."
+    exit 1
+  fi
+
+
+}
+
+function get_package_provider() {
+  # Determine our package provider
+  local os_type=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
+
+  if [ "$os_type" = "debian" ]; then
 
     # Check if apt-get is installed
-    get_package_provider=$(command -v apt)
-    if [ -n "$($get_package_provider | tr -d '[:space:]')" ]; then
-      package_provider="apt"
+    local test_command=$(command -v apt-get)
+    if [ -n "$($test_command | tr -d '[:space:]')" ]; then
+      echo "apt-get"
     else
 
-      # Neither apt or apt-get exist
-      echo "upgrade_packages: Can not find 'apt' or 'apt-get'"
-      exit 1
+      # Check if apt-get is installed
+      local test_command=$(command -v apt)
+      if [ -n "$($test_command | tr -d '[:space:]')" ]; then
+        echo "apt"
+      else
+
+        # Neither apt or apt-get exist
+        echo "upgrade_packages: Can not find 'apt' or 'apt-get'"
+        exit 1
+      fi
     fi
   fi
-fi
+}
 
 function is_apt_lock() {
   lsof -t "/var/lib/apt/lists/lock" >/dev/null 2>&1 ||
@@ -62,13 +115,16 @@ function is_apt_lock() {
 
 function wait_for_apt_unlock() {
 
-  wait_time=0
+  local apt_lock_max_wait_time=600
+  local apt_retry_interval=10
+  local wait_time=0
+
   while is_apt_lock; do
     if [ "$wait_time" -ge "$apt_lock_max_wait_time" ]; then
-      echo "Timeout reached. Lock file is still present."
+      echo "wait_for_apt_unlock: Timeout reached. Lock file is still present."
       exit 1
     fi
-    echo "Waiting for apt lock file to be released..."
+    echo "wait_for_apt_unlock: Waiting for apt lock file to be released..."
     sleep $apt_retry_interval
     wait_time=$((wait_time + $apt_retry_interval))
   done
@@ -78,6 +134,7 @@ function upgrade_packages() {
 
   case $package_provider in
     apt)
+        wait_for_apt_unlock
         apt -qqy upgrade
       ;;
 
@@ -103,6 +160,7 @@ function update_packages() {
 
   case $package_provider in
     apt)
+        wait_for_apt_unlock
         apt -qqy update
       ;;
 
@@ -124,10 +182,12 @@ function update_packages() {
 }
 
 function install_packages() {
+
   packages=$(printf "%s " "$@")
 
   case $package_provider in
     apt)
+        wait_for_apt_unlock
         apt -qqy install $packages
       ;;
 
@@ -153,6 +213,7 @@ function remove_packages() {
 
   case $package_provider in
     apt)
+        wait_for_apt_unlock
         apt -qqy remove $packages
       ;;
 
@@ -172,7 +233,6 @@ function remove_packages() {
     exit 1
   fi
 
-  os_type=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
 }
 
 function prepare_env() {
@@ -193,12 +253,14 @@ function prepare_env() {
 }
 
 function install_docker() {
+  echo "install_docker: Installing docker."
+
   # Remove currently installed docker packages
-  echo "install_docker: Removing installed docker packages..."
+  echo "install_docker: Step 1 - Removing installed docker packages"
   remove_packages docker.io docker-doc docker-compose podman-docker containerd runc
 
   # Prepare apt-cache for docker packages
-  echo "install_docker: Installing docker's keyring..."
+  echo "install_docker: Step 2 - Installing docker's keyring"
   mkdir -p /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
     gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -208,13 +270,21 @@ function install_docker() {
     tee /etc/apt/sources.list.d/docker.list > /dev/null
 
   # Install docker
-  echo "install_docker: Installing docker..."
+  echo "install_docker: Step 3 - Updating Apt Repos"
   update_packages
+
+  echo "install_docker: Step 4 - Installing docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, and docker-compose-plugin"
   install_packages docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  echo "install_docker: Step 5 - Done."
 }
 
 function install_docker_runtime() {
+  echo "install_docker_runtime: Installing docker runtime."
+
   initial_dir=$(pwd)
+
+  echo "install_docker_runtime: Step 1 - Install Go"
 
   cd /tmp
   wget https://storage.googleapis.com/golang/getgo/installer_linux
@@ -222,8 +292,12 @@ function install_docker_runtime() {
   ./installer_linux
   source ~/.bash_profile
 
+  echo "install_docker_runtime: Step 2 - Clone cri-dockerd git repo"
+
   # Download the runtime
   git clone https://github.com/Mirantis/cri-dockerd.git
+
+  echo "install_docker_runtime: Step 3 - Build cri-dockerd"
 
   # Prepare docker runtime
   cd cri-dockerd
@@ -231,9 +305,12 @@ function install_docker_runtime() {
   go build -o bin/cri-dockerd
 
   # Install docker runtime
+  echo "install_docker_runtime: Step 4 - Install cri-dockerd"
+
   install -o root -g root -m 0755 bin/cri-dockerd /usr/local/bin/cri-dockerd
 
   # Prepare docker runtime with systemd
+  echo "install_docker_runtime: Step 5 - Add cri-dockerd to systemd and enable it"
   cp -a packaging/systemd/* /etc/systemd/system
   sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
   systemctl daemon-reload
@@ -244,31 +321,44 @@ function install_docker_runtime() {
 
   # Cleanup time
   rm -rf /tmp/installer_linux /tmp/cri-dockerd
+  echo "install_docker_runtime: Step 6 - Done"
 }
 
 function install_k8() {
+  echo "install_k8: Installing kubernetes."
+
   # Prepare apt to download Kubeadm, Kubectl, and Kubelet
+  echo "install_k8: Step 1 - Add keyring to apt"
+
   curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
     gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
   echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | \
     tee /etc/apt/sources.list.d/kubernetes.list
 
+  echo "install_k8: Step 2 - Update apt repos"
   update_packages
+
+  echo "install_k8: Step 3 - Install kubelet, kubeadm, and kubectl"
   install_packages kubelet kubeadm kubectl
+
+  echo "install_k8: Step 4 - Done"
 }
 
 function import_ssl_certs() {
 
   # Add quotes around the provided JSON data from Terraform. This is to prevent jq from getting an error
   # as it expects quotes around each key=value.
+  echo "import_ssl_certs: Step 1 - Add quotes to JSON data"
   json_data=$(echo $ssl_data | sed -E 's/([0-9]+):(\{[^}]+\})/"\1":\2/g; s/([a-zA-Z0-9]+):([^,}]+)/"\1":"\2"/g')
 
+  echo "import_ssl_certs: Step 2 - Iterating through JSON data"
   for i in $(echo $json_data | jq -r 'keys[]'); do
     content=$(echo "$json_data" | jq -r ".[\"$i\"].content")
     destination=$(echo "$json_data" | jq -r ".[\"$i\"].destination")
     directory=$(dirname $destination)
 
     if [ ! -d $directory ]; then
+      echo "import_ssl_certs: Step 2a - Creating directory $directory"
       mkdir --parents $directory
 
       if [ $? -ne 0 ]; then
@@ -277,6 +367,7 @@ function import_ssl_certs() {
       fi
     fi
 
+    echo "import_ssl_certs: Step 2b - Adding certificate data to $destination"
     echo $content | tee $destination &>1
 
     if [ $? -ne 0 ]; then
@@ -284,39 +375,43 @@ function import_ssl_certs() {
       exit 1
     fi
   done
+
+  echo "import_ssl_certs: Step 3. Done"
 }
 
 function verify_ssl_certs() {
 
-  echo "verify_ssl_certs: Verifying if certificate files need to be modified."
-
-  if [ -z "$ssl_data_destination" ]; then
-    echo "verify_ssl_certs: The script is expecting certificate destinations but none exist. Stopping."
-    exit 1
-  fi
-
   # If number of lines equals one, add new lines based on certificate data
+  echo "verify_ssl_certs: Step 1 - Iterate through SSL files"
   for file in $ssl_data_destination; do
     if [ -s "$file" ]; then
       if [ $(sed -n '$=' $file) -eq 1 ]; then
+        echo "verify_ssl_certs: Step 1a. Modifying file $file"
         # Retrieve contents of file
         # separate the end of the certificate with the start of ----END
         # set the width of each line to 64 characters
         # remove empty whitespace lines and remove lines that start with a space
         # save the file
-        #cat $file | sed -E 's/= -/=\n-/g' | fold -s -w 64 | sed -e '/^ $/d' -e '/^\s/d' | tee $file &>1
         cat $file | sed -e 's/\s-----END/\n-----END/g' -e 's/-----\s/-----\n/g' | fold -s -w 64 | sed -e '/^ $/d' -e 's/^\s//g' | tee $file &>1
 
         if [ $? -ne 0 ]; then
           echo "verify_ssl_certs: Error verifying SSL certificate $file"
           exit 1
         fi
+      else
+        echo "verify_ssl_certs: Step 1a. file $file does not need to be modified"
       fi
+    else
+      echo "verify_ssl_certs: Step 1a - File $file is empty"
     fi
   done
+
+  echo "verify_ssl_certs: Step 2. Done"
 }
 
 function init_control_node() {
+  echo "init_control_node: Step 1 - Initializing Control Plane"
+
   kubeadm init \
     --pod-network-cidr=$pod_network \
     --service-cidr=$service_network \
@@ -327,38 +422,74 @@ function init_control_node() {
     %{ endif ~}
     --cri-socket=unix:///var/run/cri-dockerd.sock
 
-  if [ "$user_id" -ne 0 ]; then
-    mkdir -p $HOME/.kube
-    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-    sudo chown $(id -u):$(id -g) $HOME/.kube/config
-  else
-    export KUBECONFIG=/etc/kubernetes/admin.conf
+  if [ $? -ne 0 ]; then
+    echo "init_control_node: Initializing Control Plane failed. Stopping."
+    exit 1
   fi
+
+  echo "init_control_node: Step 2 - Adding admin.conf to 'HOME/.kube/config'"
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+  echo "init_control_node: Step 3 - Exporting KUBECONFIG variable"
+  export KUBECONFIG=/etc/kubernetes/admin.conf
+
+  echo "init_control_node: Step 4 - Done."
 }
 
 function init_pod_network() {
   kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+
+  if [ $? -ne 0 ]; then
+    echo "init_pod_network: Initializing Pod Network failed. Stopping."
+    exit 1
+  fi
 }
 
 function deploy_on_control_plane() {
   kubectl taint nodes $hostname node-role.kubernetes.io/control-plane:NoSchedule --overwrite
+
+  if [ $? -ne 0 ]; then
+    echo "deploy_on_control_plane: Deploying pods on control plane failed. Stopping."
+    exit 1
+  fi
 }
 
-function deploy_on_master() {
-  kubectl taint nodes $hostname node-role.kubernetes.io/master=:NoSchedule --overwrite
-}
+package_provider=$(get_package_provider)
 
+echo "Validate variables..."
+pre_check
+
+echo "Waiting for apt lock..."
 wait_for_apt_unlock
+
+echo "Prepare virtual machine with required packages..."
 prepare_env
+
+echo "Installing docker..."
 install_docker
+
+echo "Installing docker runtime..."
 install_docker_runtime
+
+echo "Installing kubernetes..."
 install_k8
+
 %{ if import_ssl ~}
+echo "Importing SSL Certificates...."
 import_ssl_certs
+
+echo "Verify if certificate files need to be modified."
 verify_ssl_certs
 %{ endif ~}
+
+echo "Initializing Control Plane..."
 init_control_node
+
+echo "Initializing Pod Network..."
 init_pod_network
+
 %{ if pods_on_control_node ~}
-#deploy_on_control_plane
+deploy_on_control_plane
 %{ endif ~}
