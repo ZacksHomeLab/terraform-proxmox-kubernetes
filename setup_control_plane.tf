@@ -13,6 +13,7 @@ locals {
 }
 
 resource "local_file" "prepare_control_node_script" {
+
   content = templatefile(local.prepare_node_script_template, {
     pods_on_control_node = var.pods_on_control_plane
     cluster_domain       = var.cluster_domain

@@ -1,6 +1,7 @@
 locals {
   control_plane_count = var.create_control_plane && var.control_plane_count > 0 ? var.control_plane_count : 0
   worker_count        = var.create_worker && var.worker_count > 0 ? var.worker_count : 0
+  ext_lb_count        = var.create_external_lb ? 1 : 0
 }
 
 module "control_planes" {
@@ -83,4 +84,45 @@ module "workers" {
   target_node      = local.worker_target_node
   vm_name          = local.worker_settings.vm_name
   vmid             = local.worker_settings.vm_id
+}
+
+module "external_lb" {
+  source  = "ZacksHomeLab/cloudinit-vm/proxmox"
+  version = "1.7.0"
+
+  count = local.ext_lb_count
+
+  disks    = local.ext_lb_disks
+  networks = local.ext_lb_networks
+
+  agent            = 1
+  automatic_reboot = local.ext_lb_settings.automatic_reboot
+  balloon          = local.ext_lb_settings.balloon
+  bios             = local.ext_lb_settings.bios
+  cicustom         = local.ext_lb_settings.cicustom
+  cipassword       = local.ext_lb_settings.cipassword
+  ciuser           = local.ext_lb_settings.ciuser
+  ci_wait          = local.ext_lb_settings.ciwait
+  clone            = local.ext_lb_template
+  cores            = local.ext_lb_settings.cores
+  cpu              = local.ext_lb_settings.cpu
+  description      = local.ext_lb_settings.description
+  full_clone       = true
+  hotplug          = local.ext_lb_settings.hotplug
+  memory           = local.ext_lb_settings.memory
+  nameserver       = local.ext_lb_settings.nameserver
+  onboot           = local.ext_lb_settings.onboot
+  oncreate         = local.ext_lb_settings.oncreate
+  os_type          = "cloud-init"
+  pool             = local.ext_lb_settings.pool
+  qemu_os          = "l26"
+  scsihw           = local.ext_lb_settings.scsihw
+  searchdomain     = local.ext_lb_settings.searchdomain
+  sshkeys          = local.ext_lb_settings.sshkeys
+  sockets          = local.ext_lb_settings.sockets
+  tablet           = true
+  tags             = local.ext_lb_settings.tags
+  target_node      = local.ext_lb_target_node
+  vm_name          = local.ext_lb_settings.vm_name
+  vmid             = local.ext_lb_settings.vm_id
 }

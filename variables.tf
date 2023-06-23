@@ -74,6 +74,97 @@ variable "pods_on_control_plane" {
   default     = true
 }
 
+variable "create_external_lb" {
+  description = "(Bool) Determines if an External Load Balancer should be created or destroyed."
+  type        = bool
+  default     = false
+}
+
+variable "ext_lb_disks" {
+  description = "[List{Object}] The disk(s) settings for External Load Balancer(s)."
+  type = list(object({
+    storage            = optional(string)
+    size               = optional(string)
+    type               = optional(string)
+    format             = optional(string)
+    cache              = optional(string)
+    backup             = optional(bool)
+    iothread           = optional(number)
+    discard            = optional(number)
+    replicate          = optional(number)
+    ssd                = optional(number)
+    mbps               = optional(number)
+    mbps_rd            = optional(number)
+    mbps_rd_max        = optional(number)
+    mbps_wr            = optional(number)
+    mbps_wr_max        = optional(number)
+    iops               = optional(number)
+    iops_rd            = optional(number)
+    iops_rd_max        = optional(number)
+    iops_rd_max_length = optional(number)
+    iops_wr            = optional(number)
+    iops_wr_max        = optional(number)
+    iops_wr_max_length = optional(number)
+  }))
+
+  default = []
+}
+
+variable "ext_lb_networks" {
+  description = "[List{Object}] The network adapter(s) affiliated with the External Load Balancer(s)."
+  type = list(object({
+    bridge    = optional(string)
+    model     = optional(string)
+    gateway   = optional(string)
+    gateway6  = optional(string)
+    ip        = optional(string)
+    ip6       = optional(string)
+    dhcp      = optional(bool)
+    dhcp6     = optional(bool)
+    firewall  = optional(bool)
+    link_down = optional(bool)
+    macaddr   = optional(string)
+    queues    = optional(number)
+    rate      = optional(number)
+    vlan_tag  = optional(number)
+  }))
+
+  default = []
+}
+
+variable "ext_lb_settings" {
+  description = "{Object} The settings for an External Load Balancer(s)."
+  type = object({
+    automatic_reboot = optional(bool)
+    balloon          = optional(number)
+    bios             = optional(string)
+    cicustom         = optional(string)
+    cipassword       = optional(string)
+    ciuser           = optional(string)
+    ciwait           = optional(number)
+    cores            = optional(number)
+    cpu              = optional(string)
+    description      = optional(string, "This Virtual Machine hosts an External Load Balancer")
+    hotplug          = optional(string)
+    memory           = optional(number)
+    nameserver       = optional(string)
+    onboot           = optional(bool)
+    oncreate         = optional(bool)
+    pool             = optional(string)
+    scsihw           = optional(string)
+    searchdomain     = optional(string)
+    sshkeys          = optional(string)
+    sockets          = optional(number)
+    tags             = optional(list(string))
+    target_node      = optional(string)
+    template         = optional(string)
+    vm_name          = optional(string, "k8-ext-lb")
+    vm_id            = optional(number)
+  })
+
+  default = {}
+}
+
 variable "create_control_plane" {
   description = "(Bool) Determines if Control Node should be created or destroyed."
   type        = bool

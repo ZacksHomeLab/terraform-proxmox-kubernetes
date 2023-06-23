@@ -11,6 +11,18 @@ locals {
   extra_disks      = local.extra_disk_count > 0 ? [for i in range(0, local.extra_disk_count) : var.disks[length(var.control_plane_disks) + i]] : []
 
   /*
+    See comments above extra_disk_count
+  */
+  extra_nic_count = local.control_plane_count > 0 && (length(var.networks) > length(var.control_plane_networks)) ? length(var.networks) - length(var.control_plane_networks) : 0
+  extra_nics      = local.extra_nic_count > 0 ? [for i in range(0, local.extra_nic_count) : var.networks[length(var.control_plane_networks) + i]] : []
+
+  /*
+    Retrieve Proxmox Target Node and OS Template from provided Control Plane variables or use the default values
+  */
+  control_plane_target_node = can(local.control_plane_settings.target_node) ? (local.control_plane_settings.target_node != null ? local.control_plane_settings.target_node : var.target_node) : var.target_node
+  control_plane_template    = can(local.control_plane_settings.template) ? (local.control_plane_settings.template != null ? local.control_plane_settings.template : var.template) : var.template
+
+  /*
     This contraption will iterate through all of the provided Control Plane Disks and
       check the value of each element to see if it's null or not. if the value is null,
       we will look at the default disk for its value (if it exists) and use that value for the
@@ -58,29 +70,6 @@ locals {
   ]) : var.disks
 
   /*
-    See comments above extra_disk_count
-  */
-  extra_disk_count_worker = local.worker_count > 0 && (length(var.disks) > length(var.worker_disks)) ? length(var.disks) - length(var.worker_disks) : 0
-  extra_disks_worker      = local.extra_disk_count_worker > 0 ? [for i in range(0, local.extra_disk_count_worker) : var.disks[length(var.worker_disks) + i]] : []
-
-  /*
-    See comments above control_plane_disks
-  */
-  worker_disks = length(var.worker_disks) > 0 ? flatten([
-    [for i, disk in var.worker_disks : {
-      for key, value in disk :
-      key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
-    }], [local.extra_disks_worker]
-  ]) : var.disks
-
-
-  /*
-    See comments above extra_disk_count
-  */
-  extra_nic_count = local.control_plane_count > 0 && (length(var.networks) > length(var.control_plane_networks)) ? length(var.networks) - length(var.control_plane_networks) : 0
-  extra_nics      = local.extra_nic_count > 0 ? [for i in range(0, local.extra_nic_count) : var.networks[length(var.control_plane_networks) + i]] : []
-
-  /*
     See comments above control_plane_disks
 
     This utilizes the same processes as control_plane_disks.
@@ -90,24 +79,6 @@ locals {
       for key, value in nic :
       key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
     }], [local.extra_nics]
-  ]) : var.networks
-
-  /*
-    See comments above extra_disk_count
-  */
-  extra_nic_count_worker = local.worker_count > 0 && (length(var.networks) > length(var.worker_networks)) ? length(var.networks) - length(var.worker_networks) : 0
-  extra_nics_worker      = local.extra_nic_count_worker > 0 ? [for i in range(0, local.extra_nic_count_worker) : var.networks[length(var.worker_networks) + i]] : []
-
-  /*
-    See comments above worker_networks
-
-    This utilizes the same processes as control_plane_disks.
-  */
-  worker_networks = length(var.worker_networks) > 0 ? flatten([
-    [for i, nic in var.worker_networks : {
-      for key, value in nic :
-      key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
-    }], [local.extra_nics_worker]
   ]) : var.networks
 
   /*
@@ -121,15 +92,97 @@ locals {
   } : null
 
   /*
+    See comments above extra_disk_count
+  */
+  extra_disk_count_worker = local.worker_count > 0 && (length(var.disks) > length(var.worker_disks)) ? length(var.disks) - length(var.worker_disks) : 0
+  extra_disks_worker      = local.extra_disk_count_worker > 0 ? [for i in range(0, local.extra_disk_count_worker) : var.disks[length(var.worker_disks) + i]] : []
+
+  /*
+    See comments above extra_disk_count
+  */
+  extra_nic_count_worker = local.worker_count > 0 && (length(var.networks) > length(var.worker_networks)) ? length(var.networks) - length(var.worker_networks) : 0
+  extra_nics_worker      = local.extra_nic_count_worker > 0 ? [for i in range(0, local.extra_nic_count_worker) : var.networks[length(var.worker_networks) + i]] : []
+
+  /*
+    Retrieve Proxmox Target Node and OS Template from provided Worker variables or use the default values
+  */
+  worker_target_node = can(local.worker_settings.target_node) ? (local.worker_settings.target_node != null ? local.worker_settings.target_node : var.target_node) : var.target_node
+  worker_template    = can(local.worker_settings.template) ? (local.worker_settings.template != null ? local.worker_settings.template : var.template) : var.template
+
+  /*
+    See comments above control_plane_disks
+  */
+  worker_disks = length(var.worker_disks) > 0 ? flatten([
+    [for i, disk in var.worker_disks : {
+      for key, value in disk :
+      key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
+    }], [local.extra_disks_worker]
+  ]) : var.disks
+
+  /*
+    See comments above control_plane_disks
+
+    This utilizes the same processes as control_plane_disks.
+  */
+  worker_networks = length(var.worker_networks) > 0 ? flatten([
+    [for i, nic in var.worker_networks : {
+      for key, value in nic :
+      key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
+    }], [local.extra_nics_worker]
+  ]) : var.networks
+
+  /*
     Read comment above control_plane_settings
   */
   worker_settings = local.worker_count > 0 ? { for key, value in var.worker_settings :
     key => (value != null ? value : try(lookup(var.settings, key, null), null))
   } : null
 
-  control_plane_target_node = local.control_plane_settings.target_node != null ? local.control_plane_settings.target_node : var.target_node
-  control_plane_template    = local.control_plane_settings.template != null ? local.control_plane_settings.template : var.template
 
-  worker_target_node = local.worker_settings.target_node != null ? local.worker_settings.target_node : var.target_node
-  worker_template    = local.worker_settings.template != null ? local.worker_settings.template : var.template
+  /*
+    See comments above extra_disk_count
+  */
+  extra_disk_count_ext_lb = local.ext_lb_count > 0 && (length(var.disks) > length(var.ext_lb_disks)) ? length(var.disks) - length(var.ext_lb_disks) : 0
+  extra_disks_ext_lb      = local.extra_disk_count_ext_lb > 0 ? [for i in range(0, local.extra_disk_count_ext_lb) : var.disks[length(var.ext_lb_disks) + i]] : []
+
+  /*
+    See comments above extra_disk_count
+  */
+  extra_nic_count_ext_lb = local.ext_lb_count > 0 && (length(var.networks) > length(var.ext_lb_networks)) ? length(var.networks) - length(var.ext_lb_networks) : 0
+  extra_nics_ext_lb      = local.extra_nic_count_ext_lb > 0 ? [for i in range(0, local.extra_nic_count_ext_lb) : var.networks[length(var.ext_lb_networks) + i]] : []
+
+  /*
+    Retrieve Proxmox Target Node and OS Template from provided Worker variables or use the default values
+  */
+  ext_lb_target_node = can(local.ext_lb_settings.target_node) ? (local.ext_lb_settings.target_node != null ? local.ext_lb_settings.target_node : var.target_node) : var.target_node
+  ext_lb_template    = can(local.ext_lb_settings.template) ? (local.ext_lb_settings.template != null ? local.ext_lb_settings.template : var.template) : var.template
+
+  /*
+    See comments above control_plane_disks
+  */
+  ext_lb_disks = length(var.ext_lb_disks) > 0 ? flatten([
+    [for i, disk in var.ext_lb_disks : {
+      for key, value in disk :
+      key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
+    }], [local.extra_disks_ext_lb]
+  ]) : var.disks
+
+  /*
+    See comments above control_plane_disks
+
+    This utilizes the same processes as control_plane_disks.
+  */
+  ext_lb_networks = length(var.ext_lb_networks) > 0 ? flatten([
+    [for i, nic in var.ext_lb_networks : {
+      for key, value in nic :
+      key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
+    }], [local.extra_nics_ext_lb]
+  ]) : var.networks
+
+  /*
+    Read comment above control_plane_settings
+  */
+  ext_lb_settings = local.ext_lb_count > 0 ? { for key, value in var.ext_lb_settings :
+    key => (value != null ? value : try(lookup(var.settings, key, null), null))
+  } : null
 }
