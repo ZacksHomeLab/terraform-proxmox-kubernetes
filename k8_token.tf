@@ -32,6 +32,7 @@ resource "random_string" "suffix" {
 }
 
 output "kube_token" {
-  value     = "${random_string.prefix.result}.${random_string.suffix.result}"
-  sensitive = true
+  description = "The kubenetes token used for joining node(s) to said cluster."
+  value       = "${random_string.prefix.result}.${random_string.suffix.result}"
+  sensitive   = true
 }

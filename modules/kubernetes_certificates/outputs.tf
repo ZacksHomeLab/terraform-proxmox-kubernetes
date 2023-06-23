@@ -1,5 +1,5 @@
 output "primary_certificates" {
-  description = "The "
+  description = "The contents and destinations of the primary certificates."
   value       = var.create_certificates ? local.primary_cert_files : null
   sensitive   = true
 }

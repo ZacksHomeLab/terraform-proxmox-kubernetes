@@ -132,7 +132,7 @@ resource "tls_cert_request" "apiserver_etcd_client_csr" {
   private_key_pem = data.tls_public_key.apiserver_etcd_client_key[count.index].private_key_pem
 
   subject {
-    common_name  = local.apiserver_kubelet_client_cn
+    common_name  = local.apiserver_etcd_client
     organization = "system:masters"
   }
 

@@ -36,6 +36,9 @@ locals {
   # Default Value: kube-apiserver-kubelet-client
   apiserver_kubelet_client_cn = var.apiserver_client_name
 
+  # Default Value: kube-apiserver-etcd-client
+  apiserver_etcd_client = var.etcd_apiserver_client_name
+
   # Default Value: front-proxy-ca
   front_proxy_ca_name = var.front_proxy_name
   # Default Value: front-proxy-client
@@ -149,9 +152,9 @@ locals {
     local.etcd_files
   ))
 
-  primary_cert_files = { for i, cert in local.primary_files : tostring(i) => "${cert}" }
-  etcd_cert_files    = { for i, cert in local.etcd_files : tostring(i) => "${cert}" }
+  primary_cert_files = { for i, cert in local.primary_files : tostring(i) => cert }
+  etcd_cert_files    = { for i, cert in local.etcd_files : tostring(i) => cert }
 
   # Convert all_files into a map, which can be used for for-each resources.
-  all_cert_files = { for i, cert in local.all_files : tostring(i) => "${cert}" }
+  all_cert_files = { for i, cert in local.all_files : tostring(i) => cert }
 }

@@ -53,7 +53,7 @@ locals {
   control_plane_disks = length(var.control_plane_disks) > 0 ? flatten([
     [for i, disk in var.control_plane_disks : {
       for key, value in disk :
-      key => (value != null ? value : try(lookup(var.disks[i], "${key}", null), try(lookup(var.disks[0], "${key}", null), null)))
+      key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
     }], [local.extra_disks]
   ]) : var.disks
 
@@ -69,7 +69,7 @@ locals {
   worker_disks = length(var.worker_disks) > 0 ? flatten([
     [for i, disk in var.worker_disks : {
       for key, value in disk :
-      key => (value != null ? value : try(lookup(var.disks[i], "${key}", null), try(lookup(var.disks[0], "${key}", null), null)))
+      key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
     }], [local.extra_disks_worker]
   ]) : var.disks
 
@@ -88,7 +88,7 @@ locals {
   control_plane_networks = length(var.control_plane_networks) > 0 ? flatten([
     [for i, nic in var.control_plane_networks : {
       for key, value in nic :
-      key => (value != null ? value : try(lookup(var.networks[i], "${key}", null), try(lookup(var.networks[0], "${key}", null), null)))
+      key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
     }], [local.extra_nics]
   ]) : var.networks
 
@@ -106,7 +106,7 @@ locals {
   worker_networks = length(var.worker_networks) > 0 ? flatten([
     [for i, nic in var.worker_networks : {
       for key, value in nic :
-      key => (value != null ? value : try(lookup(var.networks[i], "${key}", null), try(lookup(var.networks[0], "${key}", null), null)))
+      key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
     }], [local.extra_nics_worker]
   ]) : var.networks
 
@@ -117,16 +117,19 @@ locals {
       it will look for the default value in var.settings. If that's not found, give a null value.
   */
   control_plane_settings = local.control_plane_count > 0 ? { for key, value in var.control_plane_settings :
-    key => (value != null ? value : try(lookup(var.settings, "${key}", null), null))
+    key => (value != null ? value : try(lookup(var.settings, key, null), null))
   } : null
 
   /*
     Read comment above control_plane_settings
   */
   worker_settings = local.worker_count > 0 ? { for key, value in var.worker_settings :
-    key => (value != null ? value : try(lookup(var.settings, "${key}", null), null))
+    key => (value != null ? value : try(lookup(var.settings, key, null), null))
   } : null
 
   control_plane_target_node = local.control_plane_settings.target_node != null ? local.control_plane_settings.target_node : var.target_node
   control_plane_template    = local.control_plane_settings.template != null ? local.control_plane_settings.template : var.template
+
+  worker_target_node = local.worker_settings.target_node != null ? local.worker_settings.target_node : var.target_node
+  worker_template    = local.worker_settings.template != null ? local.worker_settings.template : var.template
 }

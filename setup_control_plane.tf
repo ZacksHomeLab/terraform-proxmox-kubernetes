@@ -8,13 +8,12 @@ locals {
   # Generate the 'join' token for Kubernetes
   kube_token = "${random_string.prefix.result}.${random_string.suffix.result}"
 
-  vm_name     = var.control_plane_settings.vm_name
   ciuser      = var.control_plane_settings.ciuser
   private_key = file(var.private_key)
 }
 
 resource "local_file" "prepare_control_node_script" {
-  content = templatefile("${local.prepare_node_script_template}", {
+  content = templatefile(local.prepare_node_script_template, {
     pods_on_control_node = var.pods_on_control_plane
     cluster_domain       = var.cluster_domain
     cluster_name         = var.cluster_name
