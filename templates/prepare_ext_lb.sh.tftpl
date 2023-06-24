@@ -7,17 +7,59 @@ trap 'exec 2>&4 1>&3' 0 1 2 3 15
 exec 1>>/tmp/log.out 2>&1
 
 user_id=$(id -u)
-virtual_ip="${external_lb_ip}"
+ip=${vm_ip}
+state=${keepalive_state}
+virtual_ip=${apiserver_vip}
+apiserver_dest_port=${apiserver_dest_port}
+keepalive_pass=${keepalive_pass}
+router_id=${keepalive_router_id}
+
+if [ "$state" == "MASTER" ]; then
+  $priority = 100
+else
+  $priority = 99
+fi
 
 function pre_check() {
 
   echo "pre_check: Validating required variables are set."
 
-  echo "pre_check: Check if provided IP Address exists on server"
-  if [ ! -n "$(hostname -I | grep $virtual_ip)" ]; then
-    echo "pre_check: Virtual IP $virtual_ip does not exist on this server. Stopping."
+  echo "pre_check: Check if running as Sudo."
+  if [ $user_id -gt 0 ]; then
+    echo "pre_check: This script requires sudo privilege to run. Stopping"
     exit 1
   fi
+
+  echo "pre_check: Check if Keepalive Router ID is greater than 0."
+  if [ ! $router_id -gt 0]; then
+    echo "pre_check: router_id must be greater than 0. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if API Server Destination Port is greater than 0."
+  if [ ! $apiserver_dest_port -gt 0]; then
+    echo "pre_check: apiserver_dest_port must be greater than 0. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if provided IP Address exists on server"
+  if [ ! -n "$(hostname -I | grep $ip)" ]; then
+    echo "pre_check: IP $ip does not exist on this server. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if State is set correctly."
+  if [ ! "$state" == "MASTER" ] && [ ! "$state" == "BACKUP" ];
+    echo "pre_check: State is missing. It should be MASTER or BACKUP."
+    exit 1
+  fi
+
+  echo "pre_check: Check if keepalive_pass is set."
+  if [ ! -n "$keepalive_pass" ]; then
+    echo "pre_check: Keepalive pass is not set. Stopping."
+    exit 1
+  fi
+
 }
 
 function get_package_provider() {
@@ -192,19 +234,79 @@ function prepare_env() {
 }
 
 function install_keepalived() {
-  echo "install_keepalived: Installing keepalived."
-
   install_packages keepalived
 }
 
 function setup_keepalived() {
 
+  local keepalive_conf="/etc/keepalived/keepalived.conf"
+  local apiserver_check_script="/etc/keepalived/check_apiserver.sh"
+
+  echo "setup_keepalive: Step 1a - Creating $keepalive_conf"
+  tee $keepalive_conf <<EOF
+global_defs {
+    router_id LVS_DEVEL
+}
+vrrp_script check_apiserver {
+  script "/etc/keepalived/check_apiserver.sh"
+  interval 3
+  weight -2
+  fall 10
+  rise 2
+}
+
+vrrp_instance VI_1 {
+    state $state
+    interface $nic
+    virtual_router_id $router_id
+    priority $priority
+    authentication {
+        auth_type PASS
+        auth_pass $keepalive_pass
+    }
+    virtual_ipaddress {
+        $virtual_ip
+    }
+    track_script {
+        check_apiserver
+    }
+}
+EOF
+
+  echo "setup_keepalive: Step 1b - Verify is keepalived.conf exists after creation."
+  if [ ! -e "$keepalive_conf" ]; then
+    echo "setup_keepalive: file '$keepalive_conf' does not exist. Stopping."
+    exit 1
+  fi
+
+  echo "setup_keepalive: Step 2a - Creating $apiserver_check_script"
+  tee $apiserver_check_script <<EOF
+#!/bin/sh
+
+errorExit() {
+    echo "*** $*" 1>&2
+    exit 1
+}
+
+curl --silent --max-time 2 --insecure https://localhost:$apiserver_dest_port/ -o /dev/null || errorExit "Error GET https://localhost:$apiserver_dest_port/"
+if ip addr | grep -q $virtual_ip; then
+    curl --silent --max-time 2 --insecure https://$virtual_ip:$apiserver_dest_port/ -o /dev/null || errorExit "Error GET https://$virtual_ip:$apiserver_dest_port/"
+fi
+EOF
+
+  echo "setup_keepalive: Step 2b - Verify is check_apiserver exists after creation."
+  if [ ! -e "$apiserver_check_script" ]; then
+    echo "setup_keepalive: file '$apiserver_check_script' does not exist. Stopping."
+    exit 1
+  fi
+
+  echo "setup_keepalive: Step 3 - Done"
 }
 
 function get_nic_name() {
 
   # Retrieve network adapter name (e.g., eth0, eth1)
-  local adapter=$(ip addr | awk -vtarget_addr=$virtual_ip '
+  local adapter=$(ip addr | awk -vtarget_addr=$ip '
 /^[0-9]+/ {
   iface=substr($2, 0, length($2)-1)
 }
@@ -230,7 +332,7 @@ pre_check
 
 package_provider=$(get_package_provider)
 
-echo "Gathering network adapter name based off of IP $virtual_ip"
+echo "Gathering network adapter name based off of IP $ip"
 nic=$(get_nic_name)
 
 echo "Waiting for apt lock..."
@@ -241,3 +343,6 @@ prepare_env
 
 echo "Installing docker..."
 install_keepalived
+
+echo "Configuring keepalived..."
+setup_keepalived

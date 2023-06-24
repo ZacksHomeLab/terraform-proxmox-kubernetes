@@ -81,6 +81,28 @@ variable "pods_on_control_plane" {
   default     = true
 }
 
+variable "apiserver_lb_virtual_ip" {
+  description = "(String) The Virtual IP address (in CIDR-Notation) the load balancer will listen on. Note: This must be a routable IP that the Control Plane can access. Default is 192.168.2.100/24"
+  type        = string
+
+  validation {
+    condition     = can(regex("^\\b(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))\\b(\\/([0-9]|[1-2][0-9]|3[0-2]))?$", var.apiserver_lb_virtual_ip))
+    error_message = "Invalid CIDR format. Please provide a valid CIDR address (e.g., 192.168.2.100/24)."
+  }
+
+  default = "192.168.2.100/24"
+}
+
+variable "keepalive_router_id" {
+  description = "(Number) The Router ID for Keepalive. You would change this number if you have multiple clusters using this module and Keepalive. Default is 51."
+  type        = number
+
+  validation {
+    condition     = var.keepalive_router_id > 0
+    error_message = "Please select a number greater than zero."
+  }
+  default = 51
+}
 variable "create_ext_apiserver_lb" {
   description = "(Bool) Determines if an External API Server Load Balancer should be created or destroyed."
   type        = bool
