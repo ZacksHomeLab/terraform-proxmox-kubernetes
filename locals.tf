@@ -142,29 +142,29 @@ locals {
   /*
     See comments above extra_disk_count
   */
-  extra_disk_count_ext_lb = local.ext_lb_count > 0 && (length(var.disks) > length(var.ext_lb_disks)) ? length(var.disks) - length(var.ext_lb_disks) : 0
-  extra_disks_ext_lb      = local.extra_disk_count_ext_lb > 0 ? [for i in range(0, local.extra_disk_count_ext_lb) : var.disks[length(var.ext_lb_disks) + i]] : []
+  extra_disk_count_ext_apiserver_lb = local.ext_apiserver_lb_count > 0 && (length(var.disks) > length(var.ext_apiserver_lb_disks)) ? length(var.disks) - length(var.ext_apiserver_lb_disks) : 0
+  extra_disks_ext_apiserver_lb      = local.extra_disk_count_ext_apiserver_lb > 0 ? [for i in range(0, local.extra_disk_count_ext_apiserver_lb) : var.disks[length(var.ext_apiserver_lb_disks) + i]] : []
 
   /*
     See comments above extra_disk_count
   */
-  extra_nic_count_ext_lb = local.ext_lb_count > 0 && (length(var.networks) > length(var.ext_lb_networks)) ? length(var.networks) - length(var.ext_lb_networks) : 0
-  extra_nics_ext_lb      = local.extra_nic_count_ext_lb > 0 ? [for i in range(0, local.extra_nic_count_ext_lb) : var.networks[length(var.ext_lb_networks) + i]] : []
+  extra_nic_count_ext_apiserver_lb = local.ext_apiserver_lb_count > 0 && (length(var.networks) > length(var.ext_apiserver_lb_networks)) ? length(var.networks) - length(var.ext_apiserver_lb_networks) : 0
+  extra_nics_ext_apiserver_lb      = local.extra_nic_count_ext_apiserver_lb > 0 ? [for i in range(0, local.extra_nic_count_ext_apiserver_lb) : var.networks[length(var.ext_apiserver_lb_networks) + i]] : []
 
   /*
     Retrieve Proxmox Target Node and OS Template from provided Worker variables or use the default values
   */
-  ext_lb_target_node = can(local.ext_lb_settings.target_node) ? (local.ext_lb_settings.target_node != null ? local.ext_lb_settings.target_node : var.target_node) : var.target_node
-  ext_lb_template    = can(local.ext_lb_settings.template) ? (local.ext_lb_settings.template != null ? local.ext_lb_settings.template : var.template) : var.template
+  ext_apiserver_lb_target_node = can(local.ext_apiserver_lb_settings.target_node) ? (local.ext_apiserver_lb_settings.target_node != null ? local.ext_apiserver_lb_settings.target_node : var.target_node) : var.target_node
+  ext_apiserver_lb_template    = can(local.ext_apiserver_lb_settings.template) ? (local.ext_apiserver_lb_settings.template != null ? local.ext_apiserver_lb_settings.template : var.template) : var.template
 
   /*
     See comments above control_plane_disks
   */
-  ext_lb_disks = length(var.ext_lb_disks) > 0 ? flatten([
-    [for i, disk in var.ext_lb_disks : {
+  ext_apiserver_lb_disks = length(var.ext_apiserver_lb_disks) > 0 ? flatten([
+    [for i, disk in var.ext_apiserver_lb_disks : {
       for key, value in disk :
       key => (value != null ? value : try(lookup(var.disks[i], key, null), try(lookup(var.disks[0], key, null), null)))
-    }], [local.extra_disks_ext_lb]
+    }], [local.extra_disks_ext_apiserver_lb]
   ]) : var.disks
 
   /*
@@ -172,17 +172,17 @@ locals {
 
     This utilizes the same processes as control_plane_disks.
   */
-  ext_lb_networks = length(var.ext_lb_networks) > 0 ? flatten([
-    [for i, nic in var.ext_lb_networks : {
+  ext_apiserver_lb_networks = length(var.ext_apiserver_lb_networks) > 0 ? flatten([
+    [for i, nic in var.ext_apiserver_lb_networks : {
       for key, value in nic :
       key => (value != null ? value : try(lookup(var.networks[i], key, null), try(lookup(var.networks[0], key, null), null)))
-    }], [local.extra_nics_ext_lb]
+    }], [local.extra_nics_ext_apiserver_lb]
   ]) : var.networks
 
   /*
     Read comment above control_plane_settings
   */
-  ext_lb_settings = local.ext_lb_count > 0 ? { for key, value in var.ext_lb_settings :
+  ext_apiserver_lb_settings = local.ext_apiserver_lb_count > 0 ? { for key, value in var.ext_apiserver_lb_settings :
     key => (value != null ? value : try(lookup(var.settings, key, null), null))
   } : null
 }

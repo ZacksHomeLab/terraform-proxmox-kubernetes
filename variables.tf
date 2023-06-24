@@ -81,14 +81,14 @@ variable "pods_on_control_plane" {
   default     = true
 }
 
-variable "create_external_lb" {
-  description = "(Bool) Determines if an External Load Balancer should be created or destroyed."
+variable "create_ext_apiserver_lb" {
+  description = "(Bool) Determines if an External API Server Load Balancer should be created or destroyed."
   type        = bool
   default     = false
 }
 
-variable "ext_lb_disks" {
-  description = "[List{Object}] The disk(s) settings for External Load Balancer(s)."
+variable "ext_apiserver_lb_disks" {
+  description = "[List{Object}] The disk(s) settings for External API Server Load Balancer(s)."
   type = list(object({
     storage            = optional(string)
     size               = optional(string)
@@ -117,8 +117,8 @@ variable "ext_lb_disks" {
   default = []
 }
 
-variable "ext_lb_networks" {
-  description = "[List{Object}] The network adapter(s) affiliated with the External Load Balancer(s)."
+variable "ext_apiserver_lb_networks" {
+  description = "[List{Object}] The network adapter(s) affiliated with the External API Server Load Balancer(s)."
   type = list(object({
     bridge    = optional(string)
     model     = optional(string)
@@ -139,8 +139,8 @@ variable "ext_lb_networks" {
   default = []
 }
 
-variable "ext_lb_settings" {
-  description = "{Object} The settings for an External Load Balancer(s)."
+variable "ext_apiserver_lb_settings" {
+  description = "{Object} The settings for an External API Server Load Balancer(s)."
   type = object({
     automatic_reboot = optional(bool)
     balloon          = optional(number)
@@ -151,7 +151,7 @@ variable "ext_lb_settings" {
     ciwait           = optional(number)
     cores            = optional(number)
     cpu              = optional(string)
-    description      = optional(string, "This Virtual Machine hosts an External Load Balancer")
+    description      = optional(string, "This Virtual Machine hosts an External API Server Load Balancer")
     hotplug          = optional(string)
     memory           = optional(number)
     nameserver       = optional(string)
@@ -165,7 +165,7 @@ variable "ext_lb_settings" {
     tags             = optional(list(string))
     target_node      = optional(string)
     template         = optional(string)
-    vm_name          = optional(string, "k8-ext-lb")
+    vm_name          = optional(string, "k8-api-lb")
     vm_id            = optional(number)
   })
 
