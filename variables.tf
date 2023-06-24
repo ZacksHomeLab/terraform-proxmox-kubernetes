@@ -68,6 +68,13 @@ variable "private_key" {
   default     = null
 }
 
+/*
+variable "external_lb_on_control_plane" {
+  description = "(Bool) Defines the ability to deploy an External Load Balancer on each Control Plane. Default is true."
+  type        = bool
+  default     = true
+}*/
+
 variable "pods_on_control_plane" {
   description = "(Bool) Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false."
   type        = bool
