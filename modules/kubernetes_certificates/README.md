@@ -76,9 +76,9 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_control_plane_name"></a> [control\_plane\_name](#input\_control\_plane\_name) | (String) The name of the Control Plane. This can be the machine's name. | `string` | n/a | yes |
-| <a name="input_external_control_plane_ip"></a> [external\_control\_plane\_ip](#input\_external\_control\_plane\_ip) | (String) The External IP Address of the Control Plane. | `string` | n/a | yes |
-| <a name="input_internal_control_plane_ip"></a> [internal\_control\_plane\_ip](#input\_internal\_control\_plane\_ip) | (String) The Internal IP Address of the Control Plane. | `string` | n/a | yes |
+| <a name="input_control_plane_names"></a> [control\_plane\_names](#input\_control\_plane\_names) | [List(String)] The name of the Control Plane(s). This can be the Virtual Machine's name. | `list(string)` | n/a | yes |
+| <a name="input_external_control_plane_ips"></a> [external\_control\_plane\_ips](#input\_external\_control\_plane\_ips) | [List(String)] The External IP Address(es) of the Control Plane(s). | `list(string)` | n/a | yes |
+| <a name="input_internal_control_plane_ips"></a> [internal\_control\_plane\_ips](#input\_internal\_control\_plane\_ips) | [List(String)] The Internal IP Address(es) of the Control Plane(s). | `list(string)` | n/a | yes |
 | <a name="input_apiserver_client_name"></a> [apiserver\_client\_name](#input\_apiserver\_client\_name) | (String) The name of the Kubernetes API Server Client Certificate. Default is 'kube-apiserver-kubelet-client'. | `string` | `"kube-apiserver-kubelet-client"` | no |
 | <a name="input_apiserver_name"></a> [apiserver\_name](#input\_apiserver\_name) | (String) The name of the Kubernetes API Server. Default is 'kube-apiserver'. | `string` | `"kube-apiserver"` | no |
 | <a name="input_certificate_directory"></a> [certificate\_directory](#input\_certificate\_directory) | The default directory of the kubernetes certificates. Default is '/etc/kubernetes/pki' | `string` | `"/etc/kubernetes/pki"` | no |

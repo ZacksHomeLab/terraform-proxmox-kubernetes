@@ -32,10 +32,6 @@ resource "tls_self_signed_cert" "etcd_ca_crt" {
   subject {
     common_name = local.etcd_ca_name
   }
-
-  depends_on = [
-    data.tls_public_key.etcd_ca_key
-  ]
 }
 
 /*
@@ -58,10 +54,6 @@ resource "tls_cert_request" "etcd_healthcheck_client_csr" {
     common_name  = local.etcd_healthcheck_name
     organization = "system:masters"
   }
-
-  depends_on = [
-    data.tls_public_key.etcd_healthcheck_client_key
-  ]
 }
 
 /*
@@ -83,11 +75,6 @@ resource "tls_locally_signed_cert" "etcd_healthcheck_client_crt" {
     "key_encipherment",
     "client_auth"
   ]
-
-  depends_on = [
-    data.tls_certificate.etcd_ca_crt,
-    data.tls_public_key.etcd_ca_key
-  ]
 }
 
 /*
@@ -107,23 +94,16 @@ resource "tls_cert_request" "etcd_peer_csr" {
   private_key_pem = data.tls_public_key.etcd_peer_key[count.index].private_key_pem
 
   dns_names = [
-    "localhost",
-    local.control_plane_name,
+    for name in concat(local.control_plane_names, tolist(["localhost"])) : tostring(name)
   ]
 
   ip_addresses = [
-    local.external_control_plane_ip,
-    "127.0.0.1",
-    "0000:0000:0000:0000:0000:0000:0000:0001"
+    for ip in concat(local.external_control_plane_ips, tolist(["127.0.0.1", "0000:0000:0000:0000:0000:0000:0000:0001"])) : tostring(ip)
   ]
 
   subject {
-    common_name = local.control_plane_name
+    common_name = local.control_plane_names[0]
   }
-
-  depends_on = [
-    data.tls_public_key.etcd_peer_key
-  ]
 }
 
 /*
@@ -144,11 +124,6 @@ resource "tls_locally_signed_cert" "etcd_peer_crt" {
     "server_auth",
     "client_auth"
   ]
-
-  depends_on = [
-    data.tls_certificate.etcd_ca_crt,
-    data.tls_public_key.etcd_ca_key
-  ]
 }
 
 /*
@@ -168,23 +143,16 @@ resource "tls_cert_request" "etcd_server_csr" {
   private_key_pem = data.tls_public_key.etcd_server_key[count.index].private_key_pem
 
   dns_names = [
-    "localhost",
-    local.control_plane_name,
+    for name in concat(local.control_plane_names, tolist(["localhost"])) : tostring(name)
   ]
 
   ip_addresses = [
-    local.external_control_plane_ip,
-    "127.0.0.1",
-    "0000:0000:0000:0000:0000:0000:0000:0001"
+    for ip in concat(local.external_control_plane_ips, tolist(["127.0.0.1", "0000:0000:0000:0000:0000:0000:0000:0001"])) : tostring(ip)
   ]
 
   subject {
-    common_name = local.control_plane_name
+    common_name = local.control_plane_names[0]
   }
-
-  depends_on = [
-    data.tls_public_key.etcd_server_key
-  ]
 }
 
 /*
@@ -204,11 +172,6 @@ resource "tls_locally_signed_cert" "etcd_server_crt" {
   allowed_uses = [
     "server_auth",
     "client_auth"
-  ]
-
-  depends_on = [
-    data.tls_certificate.etcd_ca_crt,
-    data.tls_public_key.etcd_ca_key
   ]
 }
 
