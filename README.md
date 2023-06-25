@@ -35,16 +35,19 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_certs"></a> [certs](#module\_certs) | ./modules/kubernetes_certificates | n/a |
-| <a name="module_control_planes"></a> [control\_planes](#module\_control\_planes) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.0 |
-| <a name="module_external_lb"></a> [external\_lb](#module\_external\_lb) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.0 |
-| <a name="module_workers"></a> [workers](#module\_workers) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.0 |
+| <a name="module_control_planes"></a> [control\_planes](#module\_control\_planes) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.1 |
+| <a name="module_external_lb"></a> [external\_lb](#module\_external\_lb) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.1 |
+| <a name="module_workers"></a> [workers](#module\_workers) | ZacksHomeLab/cloudinit-vm/proxmox | 1.7.1 |
 
 ## Resources
 
 | Name | Type |
 |------|------|
 | [local_file.prepare_control_node_script](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
+| [local_file.prepare_ext_apiserver_lb](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
 | [null_resource.setup_control_node](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
+| [null_resource.setup_ext_apiserver_lb](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
+| [random_password.ext_apiserver_keepalive_pass](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/password) | resource |
 | [random_string.prefix](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/string) | resource |
 | [random_string.suffix](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/string) | resource |
 
@@ -54,7 +57,9 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 |------|-------------|------|---------|:--------:|
 | <a name="input_target_node"></a> [target\_node](#input\_target\_node) | (String) The default target node for all Virtual Machines. | `string` | n/a | yes |
 | <a name="input_template"></a> [template](#input\_template) | (String) The default name of the Virtual Machine template to clone the Virtual Machine from. | `string` | n/a | yes |
+| <a name="input_apiserver_dest_port"></a> [apiserver\_dest\_port](#input\_apiserver\_dest\_port) | (String) The default destination port the apiserver will liste on. Default is 8443. | `number` | `8443` | no |
 | <a name="input_apiserver_lb_virtual_ip"></a> [apiserver\_lb\_virtual\_ip](#input\_apiserver\_lb\_virtual\_ip) | (String) The Virtual IP address (in CIDR-Notation) the load balancer will listen on. Note: This must be a routable IP that the Control Plane can access. Default is 192.168.2.100/24 | `string` | `"192.168.2.100/24"` | no |
+| <a name="input_apiserver_src_port"></a> [apiserver\_src\_port](#input\_apiserver\_src\_port) | (String) The default source port that apiserver will listen on. Default is 6443. | `number` | `6443` | no |
 | <a name="input_cluster_domain"></a> [cluster\_domain](#input\_cluster\_domain) | The domain of your cluster (e.g., mycompany.local). Default is 'cluster.local' | `string` | `"cluster.local"` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | (String) The name of your Kubernetes Cluster. Default is 'kubernetes'. | `string` | `"kubernetes"` | no |
 | <a name="input_cluster_namespace"></a> [cluster\_namespace](#input\_cluster\_namespace) | (String) The cluster's namespace. Default is 'default' | `string` | `"default"` | no |
@@ -68,6 +73,7 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 | <a name="input_create_ext_apiserver_lb"></a> [create\_ext\_apiserver\_lb](#input\_create\_ext\_apiserver\_lb) | (Bool) Determines if an External API Server Load Balancer should be created or destroyed. | `bool` | `false` | no |
 | <a name="input_create_worker"></a> [create\_worker](#input\_create\_worker) | (Bool) Determines if Worker Node(s) should be created or destroyed. | `bool` | `true` | no |
 | <a name="input_disks"></a> [disks](#input\_disks) | [List{Object}] The default disk(s) for all Virtual Machines. | <pre>list(object({<br>    storage            = optional(string)<br>    size               = optional(string, "10G")<br>    type               = optional(string, "virtio")<br>    format             = optional(string, "raw")<br>    cache              = optional(string, "none")<br>    backup             = optional(bool, false)<br>    iothread           = optional(number, 0)<br>    discard            = optional(number, 0)<br>    replicate          = optional(number, 0)<br>    ssd                = optional(number, 0)<br>    mbps               = optional(number, 0)<br>    mbps_rd            = optional(number, 0)<br>    mbps_rd_max        = optional(number, 0)<br>    mbps_wr            = optional(number, 0)<br>    mbps_wr_max        = optional(number, 0)<br>    iops               = optional(number, 0)<br>    iops_rd            = optional(number, 0)<br>    iops_rd_max        = optional(number, 0)<br>    iops_rd_max_length = optional(number, 0)<br>    iops_wr            = optional(number, 0)<br>    iops_wr_max        = optional(number, 0)<br>    iops_wr_max_length = optional(number, 0)<br>  }))</pre> | `[]` | no |
+| <a name="input_ext_apiserver_lb_count"></a> [ext\_apiserver\_lb\_count](#input\_ext\_apiserver\_lb\_count) | (Number) The number of External API Server Load balancer Virtual Machine(s) to create. If you use this functionality, at least have two. | `number` | `0` | no |
 | <a name="input_ext_apiserver_lb_disks"></a> [ext\_apiserver\_lb\_disks](#input\_ext\_apiserver\_lb\_disks) | [List{Object}] The disk(s) settings for External API Server Load Balancer(s). | <pre>list(object({<br>    storage            = optional(string)<br>    size               = optional(string)<br>    type               = optional(string)<br>    format             = optional(string)<br>    cache              = optional(string)<br>    backup             = optional(bool)<br>    iothread           = optional(number)<br>    discard            = optional(number)<br>    replicate          = optional(number)<br>    ssd                = optional(number)<br>    mbps               = optional(number)<br>    mbps_rd            = optional(number)<br>    mbps_rd_max        = optional(number)<br>    mbps_wr            = optional(number)<br>    mbps_wr_max        = optional(number)<br>    iops               = optional(number)<br>    iops_rd            = optional(number)<br>    iops_rd_max        = optional(number)<br>    iops_rd_max_length = optional(number)<br>    iops_wr            = optional(number)<br>    iops_wr_max        = optional(number)<br>    iops_wr_max_length = optional(number)<br>  }))</pre> | `[]` | no |
 | <a name="input_ext_apiserver_lb_networks"></a> [ext\_apiserver\_lb\_networks](#input\_ext\_apiserver\_lb\_networks) | [List{Object}] The network adapter(s) affiliated with the External API Server Load Balancer(s). | <pre>list(object({<br>    bridge    = optional(string)<br>    model     = optional(string)<br>    gateway   = optional(string)<br>    gateway6  = optional(string)<br>    ip        = optional(string)<br>    ip6       = optional(string)<br>    dhcp      = optional(bool)<br>    dhcp6     = optional(bool)<br>    firewall  = optional(bool)<br>    link_down = optional(bool)<br>    macaddr   = optional(string)<br>    queues    = optional(number)<br>    rate      = optional(number)<br>    vlan_tag  = optional(number)<br>  }))</pre> | `[]` | no |
 | <a name="input_ext_apiserver_lb_settings"></a> [ext\_apiserver\_lb\_settings](#input\_ext\_apiserver\_lb\_settings) | {Object} The settings for an External API Server Load Balancer(s). | <pre>object({<br>    automatic_reboot = optional(bool)<br>    balloon          = optional(number)<br>    bios             = optional(string)<br>    cicustom         = optional(string)<br>    cipassword       = optional(string)<br>    ciuser           = optional(string)<br>    ciwait           = optional(number)<br>    cores            = optional(number)<br>    cpu              = optional(string)<br>    description      = optional(string, "This Virtual Machine hosts an External API Server Load Balancer")<br>    hotplug          = optional(string)<br>    memory           = optional(number)<br>    nameserver       = optional(string)<br>    onboot           = optional(bool)<br>    oncreate         = optional(bool)<br>    pool             = optional(string)<br>    scsihw           = optional(string)<br>    searchdomain     = optional(string)<br>    sshkeys          = optional(string)<br>    sockets          = optional(number)<br>    tags             = optional(list(string))<br>    target_node      = optional(string)<br>    template         = optional(string)<br>    vm_name          = optional(string, "k8-api-lb")<br>    vm_id            = optional(number)<br>  })</pre> | `{}` | no |
@@ -87,7 +93,11 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 
 | Name | Description |
 |------|-------------|
-| <a name="output_control_planes_ip"></a> [control\_planes\_ip](#output\_control\_planes\_ip) | The primary IP addresses of each Virtual Machine. |
-| <a name="output_control_planes_ssh"></a> [control\_planes\_ssh](#output\_control\_planes\_ssh) | The ssh settings of each Virtual Machine. |
+| <a name="output_control_planes_ip"></a> [control\_planes\_ip](#output\_control\_planes\_ip) | The primary IP addresses of each Control Plane Virtual Machine. |
+| <a name="output_control_planes_ssh"></a> [control\_planes\_ssh](#output\_control\_planes\_ssh) | The ssh settings of each Control Plane Virtual Machine. |
+| <a name="output_control_planes_vm_name"></a> [control\_planes\_vm\_name](#output\_control\_planes\_vm\_name) | The Virtual Machine Name of each Control Plane. |
+| <a name="output_ext_apiserver_lb_ip"></a> [ext\_apiserver\_lb\_ip](#output\_ext\_apiserver\_lb\_ip) | The primary IP addresses of each External API Server Virtual Machine. |
+| <a name="output_ext_apiserver_lb_ssh"></a> [ext\_apiserver\_lb\_ssh](#output\_ext\_apiserver\_lb\_ssh) | The ssh settings of each External API Server Virtual Machine. |
+| <a name="output_ext_apiserver_lb_vm_name"></a> [ext\_apiserver\_lb\_vm\_name](#output\_ext\_apiserver\_lb\_vm\_name) | The Virtual Machine Name of each External API Server. |
 | <a name="output_kube_token"></a> [kube\_token](#output\_kube\_token) | The kubenetes token used for joining node(s) to said cluster. |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

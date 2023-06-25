@@ -1,12 +1,12 @@
 locals {
   control_plane_count    = var.create_control_plane && var.control_plane_count > 0 ? var.control_plane_count : 0
   worker_count           = var.create_worker && var.worker_count > 0 ? var.worker_count : 0
-  ext_apiserver_lb_count = var.create_ext_apiserver_lb ? 1 : 0
+  ext_apiserver_lb_count = var.create_ext_apiserver_lb && var.ext_apiserver_lb_count > 0 ? var.ext_apiserver_lb_count : 0
 }
 
 module "control_planes" {
   source  = "ZacksHomeLab/cloudinit-vm/proxmox"
-  version = "1.7.0"
+  version = "1.7.1"
 
   count = local.control_plane_count
 
@@ -47,7 +47,7 @@ module "control_planes" {
 
 module "workers" {
   source  = "ZacksHomeLab/cloudinit-vm/proxmox"
-  version = "1.7.0"
+  version = "1.7.1"
 
   count = local.worker_count
 
@@ -88,7 +88,7 @@ module "workers" {
 
 module "external_lb" {
   source  = "ZacksHomeLab/cloudinit-vm/proxmox"
-  version = "1.7.0"
+  version = "1.7.1"
 
   count = local.ext_apiserver_lb_count
 
@@ -123,6 +123,6 @@ module "external_lb" {
   tablet           = true
   tags             = local.ext_apiserver_lb_settings.tags
   target_node      = local.ext_apiserver_lb_target_node
-  vm_name          = local.ext_apiserver_lb_settings.vm_name
+  vm_name          = "${local.ext_apiserver_lb_settings.vm_name}-${count.index}"
   vmid             = local.ext_apiserver_lb_settings.vm_id
 }

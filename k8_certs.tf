@@ -7,8 +7,8 @@ locals {
 
   # Internal IP Address of Control Plane (e.g., 10.96.0.1)
   internal_control_plane_ip = "10.96.0.1"
-  # External IP Address of Control Plane (e.g., 192.168.2.126)
-  external_control_plane_ip = "192.168.2.126"
+  # External IP Address of Control Plane (e.g., 192.168.2.127)
+  external_control_plane_ip = "192.168.2.127"
 }
 
 module "certs" {

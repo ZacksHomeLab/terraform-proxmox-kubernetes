@@ -93,6 +93,30 @@ variable "apiserver_lb_virtual_ip" {
   default = "192.168.2.100/24"
 }
 
+variable "apiserver_src_port" {
+  description = "(String) The default source port that apiserver will listen on. Default is 6443."
+  type        = number
+
+  validation {
+    condition     = var.apiserver_src_port > 0
+    error_message = "Invalid Port. Please provide a valid port number."
+  }
+
+  default = 6443
+}
+
+variable "apiserver_dest_port" {
+  description = "(String) The default destination port the apiserver will liste on. Default is 8443."
+  type        = number
+
+  validation {
+    condition     = var.apiserver_dest_port > 0
+    error_message = "Invalid Port. Please provide a valid port number."
+  }
+
+  default = 8443
+}
+
 variable "keepalive_router_id" {
   description = "(Number) The Router ID for Keepalive. You would change this number if you have multiple clusters using this module and Keepalive. Default is 51."
   type        = number
@@ -107,6 +131,18 @@ variable "create_ext_apiserver_lb" {
   description = "(Bool) Determines if an External API Server Load Balancer should be created or destroyed."
   type        = bool
   default     = false
+}
+
+variable "ext_apiserver_lb_count" {
+  description = "(Number) The number of External API Server Load balancer Virtual Machine(s) to create. If you use this functionality, at least have two."
+  type        = number
+
+  validation {
+    condition     = var.ext_apiserver_lb_count >= 0
+    error_message = "Please choose a number equal or greater than 0."
+  }
+
+  default = 0
 }
 
 variable "ext_apiserver_lb_disks" {
