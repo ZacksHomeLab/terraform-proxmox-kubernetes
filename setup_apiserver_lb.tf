@@ -26,7 +26,7 @@ resource "local_file" "prepare_ext_apiserver_lb" {
 
   content = templatefile(local.prepare_ext_apiserver_script_template, {
     vms                 = module.control_planes
-    apiserver_src_port  = var.apiserver_src_port
+    ext_lb_port         = var.ext_apiserver_lb_port
     apiserver_dest_port = var.apiserver_dest_port
     keepalive_router_id = var.keepalive_router_id
     keepalive_pass      = random_password.ext_apiserver_keepalive_pass[0].result
@@ -75,6 +75,7 @@ resource "null_resource" "setup_ext_apiserver_lb" {
   triggers = {
     vmid = module.external_lb[count.index].vmid
   }
+
   # Prevent this resource from running until external_lb(s) are fully provisioned
   depends_on = [module.external_lb]
 }

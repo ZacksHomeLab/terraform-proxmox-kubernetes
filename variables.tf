@@ -93,16 +93,16 @@ variable "apiserver_lb_virtual_ip" {
   default = "192.168.2.100/24"
 }
 
-variable "apiserver_src_port" {
-  description = "(String) The default source port that apiserver will listen on. Default is 6443."
+variable "ext_apiserver_lb_port" {
+  description = "(String) The default port the External Apiserver LB will listen on. Default is 443."
   type        = number
 
   validation {
-    condition     = var.apiserver_src_port > 0
+    condition     = var.ext_apiserver_lb_port > 0
     error_message = "Invalid Port. Please provide a valid port number."
   }
 
-  default = 6443
+  default = 443
 }
 
 variable "apiserver_dest_port" {
@@ -114,7 +114,7 @@ variable "apiserver_dest_port" {
     error_message = "Invalid Port. Please provide a valid port number."
   }
 
-  default = 8443
+  default = 6443
 }
 
 variable "keepalive_router_id" {

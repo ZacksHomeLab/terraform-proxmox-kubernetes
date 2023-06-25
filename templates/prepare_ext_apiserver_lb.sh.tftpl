@@ -10,9 +10,11 @@ USER_ID=$(id -u)
 
 APISERVER_HOST_IP="$1"
 APISERVER_DEST_PORT=${apiserver_dest_port}
-APISERVER_SRC_PORT=${apiserver_src_port}
 APISERVER_VIP="${virtual_ip}"
 APISERVER_VIP_NO_MASK=$(echo $APISERVER_VIP | sed -E 's/\/([0-9]+)?$//')
+
+# The load balancer will listen on this port
+EXT_LB_PORT=${ext_lb_port}
 
 KEEPALIVE_PASS="$2"
 KEEPALIVE_ROUTER_ID=${keepalive_router_id}
@@ -42,8 +44,8 @@ function pre_check() {
   fi
 
   echo "pre_check: Check if API Server Destination Port is greater than 0."
-  if [ ! $APISERVER_DEST_PORT -gt 0]; then
-    echo "pre_check: APISERVER_DEST_PORT must be greater than 0. Stopping."
+  if [ ! $EXT_LB_PORT -gt 0]; then
+    echo "pre_check: EXT_LB_PORT must be greater than 0. Stopping."
     exit 1
   fi
 
@@ -329,9 +331,9 @@ errorExit() {
     exit 1
 }
 
-curl --silent --max-time 2 --insecure https://localhost:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://localhost:$APISERVER_DEST_PORT/"
+curl --silent --max-time 2 --insecure https://localhost:$EXT_LB_PORT/ -o /dev/null || errorExit "Error GET https://localhost:$EXT_LB_PORT/"
 if ip addr | grep -q $APISERVER_VIP; then
-    curl --silent --max-time 2 --insecure https://$APISERVER_VIP_NO_MASK:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://$APISERVER_VIP_NO_MASK:$APISERVER_DEST_PORT/"
+    curl --silent --max-time 2 --insecure https://$APISERVER_VIP_NO_MASK:$EXT_LB_PORT/ -o /dev/null || errorExit "Error GET https://$APISERVER_VIP_NO_MASK:$EXT_LB_PORT/"
 fi
 EOF
 
@@ -392,7 +394,7 @@ defaults
 # apiserver frontend which proxys to the control plane nodes
 #---------------------------------------------------------------------
 frontend apiserver
-    bind *:$APISERVER_DEST_PORT
+    bind *:$EXT_LB_PORT
     mode tcp
     option tcplog
     default_backend apiserver
@@ -407,7 +409,7 @@ backend apiserver
     option ssl-hello-chk
     balance     roundrobin
   %{ for vm in vms ~}
-      server ${vm.name} ${vm.ssh_settings.ssh_host}:$APISERVER_SRC_PORT check
+      server ${vm.name} ${vm.ssh_settings.ssh_host}:$APISERVER_DEST_PORT check
   %{ endfor ~}
 
 EOF

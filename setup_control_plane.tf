@@ -48,7 +48,7 @@ resource "null_resource" "setup_control_node" {
     inline = [
       <<-EOT
         sudo chmod +x '${local.prepare_node_script_dest}' && \
-        ${var.create_certificates ? "sudo '${local.prepare_node_script_dest}' ${jsonencode(module.certs.all_certificates)}" : "sudo '${local.prepare_node_script_dest}'"} && \
+        ${var.create_certificates ? "sudo '${local.prepare_node_script_dest}' ${jsonencode(module.certs[0].all_certificates)}" : "sudo '${local.prepare_node_script_dest}'"} && \
         sudo rm '${local.prepare_node_script_dest}'
       EOT
       ,
