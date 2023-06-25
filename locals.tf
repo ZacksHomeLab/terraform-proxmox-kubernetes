@@ -1,5 +1,5 @@
 /*
-  This file computers all of the necessary local variables for k8_infra.tf.
+  This file computers all of the necessary local variables for k8_infrastructure.tf.
 */
 locals {
   /*

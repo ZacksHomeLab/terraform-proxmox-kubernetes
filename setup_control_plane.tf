@@ -1,6 +1,6 @@
 locals {
-  import_certs      = (var.create_certificates || var.create_etcd_certificates) && local.control_plane_count > 0 ? local.control_plane_count : 0
-  cert_destinations = local.import_certs > 0 ? join(" ", module.certs.all_certificates_destinations) : ""
+
+  import_certs = (var.create_certificates || var.create_etcd_certificates) && local.control_plane_count > 0 ? local.control_plane_count : 0
 
   prepare_node_script_template = "${path.module}/templates/prepare_control_node.sh.tftpl"
   prepare_node_script_rendered = "${path.module}/rendered/prepare_control_node.sh"
@@ -15,7 +15,7 @@ resource "local_file" "prepare_control_node_script" {
   count = local.control_plane_count > 0 ? 1 : 0
 
   content = templatefile(local.prepare_node_script_template, {
-    cert_destinations    = local.cert_destinations
+    cert_destinations    = local.import_certs > 0 ? join(" ", module.certs[count.index].all_certificates_destinations) : ""
     cluster_domain       = var.cluster_domain
     cluster_name         = var.cluster_name
     cluster_namespace    = var.cluster_namespace

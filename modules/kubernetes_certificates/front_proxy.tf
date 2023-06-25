@@ -32,10 +32,6 @@ resource "tls_self_signed_cert" "front_proxy_crt" {
   subject {
     common_name = local.front_proxy_ca_name
   }
-
-  depends_on = [
-    data.tls_public_key.front_proxy_key
-  ]
 }
 
 /*
@@ -57,10 +53,6 @@ resource "tls_cert_request" "front_proxy_client_csr" {
   subject {
     common_name = local.front_proxy_client_name
   }
-
-  depends_on = [
-    data.tls_public_key.front_proxy_client_key
-  ]
 }
 
 /*
@@ -81,11 +73,6 @@ resource "tls_locally_signed_cert" "front_proxy_client_crt" {
     "digital_signature",
     "key_encipherment",
     "client_auth"
-  ]
-
-  depends_on = [
-    data.tls_certificate.front_proxy_crt,
-    data.tls_public_key.front_proxy_key
   ]
 }
 
