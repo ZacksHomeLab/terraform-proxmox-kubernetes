@@ -17,7 +17,7 @@ resource "random_password" "ext_apiserver_keepalive_pass" {
   # By default, random providers generate new values ONLY if they're deleted. So,
   #   it may not be necessary to have a 'keeper' or 'trigger'
   /*keepers = {
-    vm_id = module.external_lb[0].vmid
+    vm_id = module.ext_apiserver_lb[0].vmid
   }*/
 }
 
@@ -40,10 +40,10 @@ resource "null_resource" "setup_ext_apiserver_lb" {
   count = local.ext_apiserver_lb_count
 
   connection {
-    host        = module.external_lb[count.index].ssh_settings.ssh_host
+    host        = module.ext_apiserver_lb[count.index].ssh_settings.ssh_host
     private_key = local.private_key
     type        = "ssh"
-    user        = module.external_lb[count.index].ssh_settings.ssh_user
+    user        = module.ext_apiserver_lb[count.index].ssh_settings.ssh_user
   }
 
   provisioner "file" {
@@ -63,9 +63,9 @@ resource "null_resource" "setup_ext_apiserver_lb" {
       <<-EOT
         sudo chmod +x ${local.prepare_ext_apiserver_script_dest} && \
         sudo ${local.prepare_ext_apiserver_script_dest} \
-        ${module.external_lb[count.index].ip} \
+        ${module.ext_apiserver_lb[count.index].ip} \
         ${random_password.ext_apiserver_keepalive_pass[0].result} \
-        ${module.external_lb[count.index].ip == module.external_lb[0].ip ? "MASTER" : "BACKUP"} && \
+        ${module.ext_apiserver_lb[count.index].ip == module.ext_apiserver_lb[0].ip ? "MASTER" : "BACKUP"} && \
         sudo rm ${local.prepare_ext_apiserver_script_dest}
       EOT
       ,
@@ -73,9 +73,9 @@ resource "null_resource" "setup_ext_apiserver_lb" {
   }
 
   triggers = {
-    vmid = module.external_lb[count.index].vmid
+    vmid = module.ext_apiserver_lb[count.index].vmid
   }
 
   # Prevent this resource from running until external_lb(s) are fully provisioned
-  depends_on = [module.external_lb]
+  depends_on = [module.ext_apiserver_lb]
 }

@@ -33,7 +33,7 @@ output "control_planes_ssh" {
 output "ext_apiserver_lb_vm_name" {
   description = "The Virtual Machine Name of each External API Server."
   value = local.ext_apiserver_lb_count > 0 ? {
-    for i, vm in module.external_lb : tostring(i) => {
+    for i, vm in module.ext_apiserver_lb : tostring(i) => {
       vm_name = vm.name
     }
   } : null
@@ -42,7 +42,7 @@ output "ext_apiserver_lb_vm_name" {
 output "ext_apiserver_lb_ip" {
   description = "The primary IP addresses of each External API Server Virtual Machine."
   value = local.ext_apiserver_lb_count > 0 ? {
-    for i, vm in module.external_lb : tostring(i) => {
+    for i, vm in module.ext_apiserver_lb : tostring(i) => {
       ip = vm.ip
     }
   } : null
@@ -51,7 +51,7 @@ output "ext_apiserver_lb_ip" {
 output "ext_apiserver_lb_ssh" {
   description = "The ssh settings of each External API Server Virtual Machine."
   value = local.ext_apiserver_lb_count > 0 ? {
-    for i, vm in module.external_lb : tostring(i) => {
+    for i, vm in module.ext_apiserver_lb : tostring(i) => {
       vm_name  = vm.name
       ssh_host = vm.ssh_settings.ssh_host
       ssh_port = vm.ssh_settings.ssh_port

@@ -42,3 +42,4 @@ rendered/prepare_control_node.sh
 rendered/*
 
 redo.sh
+inventory.yml
