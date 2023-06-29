@@ -8,7 +8,7 @@ locals {
   # Load Virtual Machine data from inventory.yml
   control_plane_vms    = can(local.inventory["control_planes"]) ? local.inventory["control_planes"] : null
   worker_vms           = can(local.inventory["workers"]) ? local.inventory["workers"] : null
-  ext_apiserver_lb_vms = can(local.inventory["ext_apiserver_lb_vms"]) ? local.inventory["ext_apiserver_lb_vms"] : null
+  ext_apiserver_lb_vms = can(local.inventory["ext_apiserver_lb"]) ? local.inventory["ext_apiserver_lb"] : null
 
   control_plane_count    = var.create_control_plane && can(length(local.control_plane_vms) > 0) ? length(local.control_plane_vms) : 0
   worker_count           = var.create_worker && can(length(local.worker_vms) > 0) ? length(local.worker_vms) : 0
@@ -220,6 +220,7 @@ locals {
       setting => try(vm.settings[setting], try(local.default_settings[setting], null))
     }
   } : {}
+
 
   worker_target_node = local.worker_count > 0 ? [for vm in local.worker_vms : can(vm.target_node) ? vm.target_node : local.defaults.target_node] : null
   worker_template    = local.worker_count > 0 ? [for vm in local.worker_vms : can(vm.template) ? vm.template : local.defaults.template] : null
