@@ -38,31 +38,31 @@ function pre_check() {
   fi
 
   echo "pre_check: Check if Keepalive Router ID is greater than 0."
-  if [ ! $KEEPALIVE_ROUTER_ID -gt 0]; then
+  if [[ ! $KEEPALIVE_ROUTER_ID -gt 0 ]]; then
     echo "pre_check: KEEPALIVE_ROUTER_ID must be greater than 0. Stopping."
     exit 1
   fi
 
   echo "pre_check: Check if API Server Destination Port is greater than 0."
-  if [ ! $EXT_LB_PORT -gt 0]; then
+  if [[ ! $EXT_LB_PORT -gt 0 ]]; then
     echo "pre_check: EXT_LB_PORT must be greater than 0. Stopping."
     exit 1
   fi
 
   echo "pre_check: Check if provided IP Address exists on server"
-  if [ ! -n "$(hostname -I | grep $APISERVER_HOST_IP)" ]; then
+  if [[ ! -n "$(hostname -I | grep $APISERVER_HOST_IP)" ]]; then
     echo "pre_check: IP $APISERVER_HOST_IP does not exist on this server. Stopping."
     exit 1
   fi
 
   echo "pre_check: Check if State is set correctly."
-  if [ ! "$KEEPALIVE_STATE" == "MASTER" ] && [ ! "$KEEPALIVE_STATE" == "BACKUP" ]; then
+  if [[ ! $KEEPALIVE_STATE == "MASTER" ]] && [[ ! $KEEPALIVE_STATE == "BACKUP" ]]; then
     echo "pre_check: State is missing. It should be MASTER or BACKUP."
     exit 1
   fi
 
   echo "pre_check: Check if KEEPALIVE_PASS is set."
-  if [ ! -n "$KEEPALIVE_PASS" ]; then
+  if [[ ! -n $KEEPALIVE_PASS ]]; then
     echo "pre_check: Keepalive pass is not set. Stopping."
     exit 1
   fi
@@ -85,7 +85,7 @@ $1 == "inet" {
 }
 ')
 
-  if [ ! -n "$ADAPTER" ]; then
+  if [[ ! -n $ADAPTER ]]; then
     echo "get_nic_name: Did not find a network adapter matching the provided IP Address. Stopping."
     exit 1
   else
@@ -95,24 +95,24 @@ $1 == "inet" {
 
 function get_package_provider() {
   # Determine our package provider
-  local os_type=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
+  local OS_TYPE=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
+  local APT_GET=$(command -v apt-get)
+  local APT=$(command -v apt)
 
-  if [ "$os_type" = "debian" ]; then
+  if [[ $OS_TYPE = "debian" ]]; then
 
     # Check if apt-get is installed
-    local test_command=$(command -v apt-get)
-    if [ -n "$($test_command | tr -d '[:space:]')" ]; then
+    if [[ -n $($APT_GET | tr -d '[:space:]') ]]; then
       echo "apt-get"
     else
 
       # Check if apt-get is installed
-      local test_command=$(command -v apt)
-      if [ -n "$($test_command | tr -d '[:space:]')" ]; then
+      if [[ -n $($APT | tr -d '[:space:]') ]]; then
         echo "apt"
       else
 
         # Neither apt or apt-get exist
-        echo "upgrade_packages: Can not find 'apt' or 'apt-get'"
+        echo "get_package_provider: Can not find 'apt' or 'apt-get'"
         exit 1
       fi
     fi
@@ -127,18 +127,21 @@ function is_apt_lock() {
 
 function wait_for_apt_unlock() {
 
-  local apt_lock_max_wait_time=600
-  local apt_retry_interval=10
+  local APT_LOCK_MAX_WAIT_TIME=600
+  local APT_RETRY_INTERVAL=10
   local wait_time=0
 
   while is_apt_lock; do
-    if [ "$wait_time" -ge "$apt_lock_max_wait_time" ]; then
+    if [[ $wait_time -ge $APT_LOCK_MAX_WAIT_TIME ]]; then
       echo "wait_for_apt_unlock: Timeout reached. Lock file is still present."
       exit 1
     fi
+
     echo "wait_for_apt_unlock: Waiting for apt lock file to be released..."
-    sleep $apt_retry_interval
-    wait_time=$((wait_time + $apt_retry_interval))
+    sleep $APT_RETRY_INTERVAL
+
+    wait_time=$(($wait_time + $APT_RETRY_INTERVAL))
+
   done
 }
 
@@ -162,7 +165,7 @@ function upgrade_packages() {
       ;;
   esac
 
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     echo "upgrade_packages: 'apt' failed upgrading with exit code '$?'"
     exit 1
   fi
@@ -187,7 +190,7 @@ function update_packages() {
       ;;
   esac
 
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     echo "update_packages: '$PACKAGE_PROVIDER' failed updating with exit code '$?'"
     exit 1
   fi
@@ -214,7 +217,7 @@ function install_packages() {
       ;;
   esac
 
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     echo "install_packages: '$PACKAGE_PROVIDER' failed installing packages with exit code '$?'"
     exit 1
   fi
@@ -240,7 +243,7 @@ function remove_packages() {
       ;;
   esac
 
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     echo "remove_packages: '$PACKAGE_PROVIDER' failed removing packages with exit code '$?'"
     exit 1
   fi
@@ -264,6 +267,49 @@ function prepare_env() {
   sed -i 's/^\/swap/#\/swap/' /etc/fstab
 }
 
+function config_firewall() {
+
+  echo "config_firewall: Adding firewall rules..."
+
+  echo "config_firewall: Step 1a - Disable UFW (if active)"
+  if [[ $(ufw status | grep -i "Status: active") ]]; then
+    echo "config_firewall: UFW is active. Disabling..."
+    ufw disable
+  fi
+
+  echo "config_firewall: Step 1b - Stop ufw"
+  if [[ $(systemctl status ufw | grep -i "Active: active") ]]; then
+    systemctl stop ufw
+  fi
+
+  echo "config_firewall: Step 2a - Install firewalld"
+  install_packages firewalld
+
+  echo "config_firewall: Step 2b - Enable firewalld"
+  systemctl enable firewalld --now
+
+  echo "config_firewall: Step 3 - Allow VRRP Traffic from Keepalivd"
+  if [[ ! $(firewall-cmd --zone=public --list-rich-rules | grep -i "\"224.0.0.18\" protocol value=\"112\" accept") ]]; then
+    echo "config_firewall: Adding VRRP traffic to firewall"
+
+    firewall-cmd --zone=public --add-rich-rule='rule family="ipv4" destination address="224.0.0.18" protocol value="112" accept' --permanent
+    firewall-cmd --reload
+  else
+    echo "config_firewall: VRRP traffic already allowed"
+  fi
+
+  echo "config_firewall: Step 4 - Allow Kubernetes API Server Traffic"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "$EXT_LB_PORT/tcp") ]]; then
+    echo "config_firewall: Adding port $EXT_LB_PORT to firewall"
+
+    firewall-cmd --zone=public --add-port=$EXT_LB_PORT/tcp --permanent
+    firewall-cmd --reload
+  else
+    echo "config_firewall: Port $EXT_LB_PORT already added to firewall"
+  fi
+
+}
+
 function install_keepalived() {
   install_packages keepalived
 }
@@ -278,7 +324,7 @@ function setup_keepalived() {
     echo "setup_keepalive: User doesn't exist. Creating now."
     useradd -r $KEEPALIVE_SCRIPT_USER
 
-    if [ $? -ne 0 ]; then
+    if [[ $? -ne 0 ]]; then
       echo "setup_keepalive: Error creating user $KEEPALIVE_SCRIPT_USER. Stopping."
       exit 1
     fi
@@ -407,7 +453,7 @@ backend apiserver
     http-check expect status 200
     mode tcp
     option ssl-hello-chk
-    balance     roundrobin
+    balance roundrobin
   %{ for vm in vms ~}
       server ${vm.name} ${vm.ssh_settings.ssh_host}:$APISERVER_DEST_PORT check
   %{ endfor ~}
@@ -415,7 +461,7 @@ backend apiserver
 EOF
 
   echo "setup_haproxy: Step 1b - Verify if '$HAPROXY_CONF' exists after creation."
-  if [ ! -e "$HAPROXY_CONF" ]; then
+  if [[ ! -e $HAPROXY_CONF ]]; then
     echo "setup_haproxy: file '$HAPROXY_CONF' does not exist. Stopping."
     exit 1
   fi
@@ -429,6 +475,16 @@ function start_services() {
 
   systemctl enable haproxy --now
   systemctl enable keepalived --now
+}
+
+function add_nonlocal_bind() {
+
+  echo "add_nonlocal_bind: Adding nonlocal bind to /etc/sysctl.d/99-sysctl.conf"
+  if [[ ! $(grep -q "net.ipv4.ip_nonlocal_bind\s*=\s*1" /etc/sysctl.d/99-sysctl.conf) ]]; then
+    echo "net.ipv4.ip_nonlocal_bind = 1" >> /etc/sysctl.d/99-sysctl.conf
+    echo "add_nonlocal_bind: Rebooting now."
+    shutdown -r +0
+  fi
 }
 
 echo "Validate variables..."
@@ -445,6 +501,9 @@ wait_for_apt_unlock
 echo "Prepare virtual machine with required packages..."
 prepare_env
 
+echo "Prepare firewall rules..."
+config_firewall
+
 echo "Installing keepalived..."
 install_keepalived
 
@@ -460,4 +519,5 @@ setup_haproxy
 echo "Starting haproxy & keepalived..."
 start_services
 
-echo "Script complete!"
+echo "Adding nonlocal bind... If it doesn't exist, the server will reboot. Otherwise, script complete."
+add_nonlocal_bind

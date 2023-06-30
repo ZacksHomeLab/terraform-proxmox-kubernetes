@@ -33,13 +33,6 @@ variable "control_plane_names" {
   type        = list(string)
 }
 
-variable "cluster_name" {
-  description = "(String) The name of your Kubernetes Cluster. Default is 'kubernetes'."
-  type        = string
-  nullable    = false
-  default     = "kubernetes"
-}
-
 variable "cluster_domain" {
   description = "(String) The domain name of your cluster (e.g., mycompany.local). Default is 'cluster.local'"
   type        = string
@@ -155,4 +148,10 @@ variable "external_control_plane_ips" {
     condition     = alltrue([for ip in var.external_control_plane_ips : can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", ip))])
     error_message = "Invalid IP Address. Please provide an IP Address that meets IPv4 CIDR-Notation (e.g., 192.168.1.1)."
   }
+}
+
+variable "virtual_ip" {
+  description = "The Virtual IP Address of the Load Balancer to handle API Server requests. Typically used with KeepaliveD/HAProxy."
+  type        = string
+  nullable    = true
 }

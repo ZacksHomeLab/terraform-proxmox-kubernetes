@@ -1,0 +1,294 @@
+#!/bin/bash
+
+export DEBIAN_FRONTEND=noninteractive
+
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3 15
+exec 1>>/tmp/log.out 2>&1
+
+APISERVER_DEST_PORT="${apiserver_dest_port}"
+APISERVER_VIP="${virtual_ip}"
+APISERVER_VIP_NO_MASK="$(echo $APISERVER_VIP | sed -E 's/\/([0-9]+)?$//')"
+
+CLUSTER_DOMAIN="${cluster_domain}"
+CLUSTER_NAMESPACE="${cluster_namespace}"
+
+KUBEADM_TASK=$1
+
+ETCD_SOURCE_PORT="${etcd_src_port}"
+ETCD_DEST_PORT="${etcd_dest_port}"
+
+HOSTNAME=$(hostname | tr '[:upper:]' '[:lower:]')
+
+LB_PORT="${lb_port}"
+
+POD_NETWORK="${pod_network}"
+
+#FLANNEL_NETWORK="$(echo $POD_NETWORK | sed -E 's/\/([0-9]+)?$//')/24"
+SERVICE_NETWORK="${service_network}"
+
+USER_ID=$(id -u)
+
+function pre_check() {
+
+  echo "pre_check: Validating certain conditions are met before continuing."
+
+  # Pre-Check: Verify if sudo
+  if [[ $USER_ID -eq 0 ]]; then
+    echo "pre_check: Running as sudo."
+  else
+    echo "pre_check: This script requires sudo privilege to run."
+    exit 1
+  fi
+
+  %{ if enable_apiserver_lb ~}
+  echo "pre_check: Check if API Server Destination Port is greater than 0."
+  if [[ $LB_PORT -gt 0 ]]; then
+    echo "pre_check: API Server Destination Port ($LB_PORT) is greater than 0."
+  else
+    echo "pre_check: API Server Destination Port must be greater than 0. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if API Server Virtual IP is set."
+  if [[ -n $APISERVER_VIP_NO_MASK ]]; then
+    echo "pre_check: API Server Virtual IP ($APISERVER_VIP_NO_MASK) is set."
+  else
+    echo "pre_check: API Server Virtual IP is not set. Stopping."
+    exit 1
+  fi
+  %{ endif ~}
+
+  if [[ -n $POD_NETWORK ]]; then
+    echo "pre_check: Pod network ($POD_NETWORK) is set."
+  else
+    echo "pre_check: Pod network was not set. Stopping."
+    exit 1
+  fi
+
+  if [[ -n $SERVICE_NETWORK ]]; then
+    echo "pre_check: Service network ($SERVICE_NETWORK) is set."
+  else
+    echo "pre_check: Service network was not set. Stopping."
+    exit 1
+  fi
+
+  if [[ -n $CLUSTER_DOMAIN ]]; then
+    echo "pre_check: Cluster Domain ($CLUSTER_DOMAIN) is set."
+  else
+    echo "pre_check: Cluster Domain was not set. Stopping."
+    exit 1
+  fi
+
+  if [[ -n $CLUSTER_NAMESPACE ]]; then
+    echo "pre_check: Cluster NameSpace ($CLUSTER_NAMESPACE) is set."
+  else
+    echo "pre_check: Cluster NameSpace was not set. Stopping."
+    exit 1
+  fi
+}
+
+function open_firewall_ports() {
+
+  echo "open_firewall_ports: Step 1 - Opening required Firewall Ports."
+
+  echo "open_firewall_ports: Step 1a - Opening port $APISERVER_DEST_PORT/tcp in firewalld (if not already open)"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "$APISERVER_DEST_PORT/tcp") ]]; then
+    echo "open_firewall_ports: Adding API Server Destination Port ($APISERVER_DEST_PORT/tcp) to firewall"
+
+    firewall-cmd --zone=public --add-port=$APISERVER_DEST_PORT/tcp --permanent
+    firewall-cmd --reload
+  else
+    echo "open_firewall_ports: API Server Destination Port ($APISERVER_DEST_PORT/tcp) already added to firewall"
+  fi
+
+  echo "open_firewall_ports: Step 1b - Opening port $ETCD_SOURCE_PORT/tcp in firewalld (if not already open)"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "$ETCD_SOURCE_PORT/tcp") ]]; then
+    echo "open_firewall_ports: Opening ETCD Source Port ($ETCD_SOURCE_PORT/tcp) in firewalld"
+
+    firewall-cmd --zone=public --add-port=$ETCD_SOURCE_PORT/tcp --permanent
+    firewall-cmd --reload
+  else
+    echo "open_firewall_ports: ETCD Source Port ($ETCD_SOURCE_PORT/tcp) already opened to firewalld"
+  fi
+
+  echo "open_firewall_ports: Step 1c - Opening port $ETCD_DEST_PORT/tcp in firewalld (if not already open)"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "$ETCD_DEST_PORT/tcp") ]]; then
+    echo "open_firewall_ports: Opening ETCD Destination Port ($ETCD_DEST_PORT/tcp) in firewalld"
+
+    firewall-cmd --zone=public --add-port=$ETCD_DEST_PORT/tcp --permanent
+    firewall-cmd --reload
+  else
+    echo "open_firewall_ports: ETCD Destination Port ($ETCD_DEST_PORT/tcp) already opened in firewalld"
+  fi
+
+  echo "open_firewall_ports: Step 1d - Opening Kubelet ports 10250-10252/tcp in firewalld (if not already open)"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "10250-10252/tcp") ]]; then
+    echo "open_firewall_ports: Opening Kubelet ports (10250-10252/tcp) in firewalld"
+
+    firewall-cmd --zone=public --add-port=10250-10252/tcp --permanen
+    firewall-cmd --reload
+  else
+    echo "open_firewall_ports: Kubelet ports (10250-10252/tcp) already opened in firewalld"
+  fi
+
+  echo "open_firewall_ports: Step 2 - Open Flannel's required ports in Firewalld..."
+  echo "open_firewall_ports: Step 2a - Opening Flannel port (8472/udp) in firewalld (if not already open)"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "8472/udp") ]]; then
+    echo "open_firewall_ports: Opening Flannel port (8472/udp) in firewalld (if not already open)"
+
+    firewall-cmd --zone=public --add-port=8472/udp --permanent
+    firewall-cmd --reload
+  else
+    echo "open_firewall_ports: Flannel port (8472/udp) already opened in firewalld"
+  fi
+
+  echo "open_firewall_ports: Step 3 - Done."
+}
+
+function init_first_control_plane() {
+
+  echo "init_first_control_plane: Step 1 - Initializing Control Plane"
+
+    kubeadm init \
+      --pod-network-cidr=$POD_NETWORK \
+      --service-cidr=$SERVICE_NETWORK \
+      --service-dns-domain=$CLUSTER_DOMAIN \
+%{ if enable_apiserver_lb && virtual_ip != null ~}
+      --control-plane-endpoint=$APISERVER_VIP_NO_MASK:$LB_PORT \
+%{ endif ~}
+%{ if kube_token != null ~}
+      --token "${kube_token}" \
+      --token-ttl 0 \
+%{ endif ~}
+      --cri-socket=unix:///var/run/cri-dockerd.sock
+
+    if [[ $? -ne 0 ]]; then
+      echo "init_first_control_plane: Initializing Control Plane failed. Stopping."
+      exit 1
+    fi
+
+    echo "init_first_control_plane: Step 2 - Adding admin.conf to 'HOME/.kube/config'"
+    mkdir -p $HOME/.kube
+    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+    echo "init_first_control_plane: Step 3 - Exporting KUBECONFIG variable"
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+
+  echo "init_first_control_plane: Step 4 - Done."
+}
+
+function join_existing_cluster() {
+
+  echo "join_existing_cluster: Step 1 - Joining Existing Cluster"
+
+  kubeadm join \
+%{ if enable_apiserver_lb && virtual_ip != null ~}
+    $APISERVER_VIP_NO_MASK:$LB_PORT \
+%{ endif ~}
+%{ if kube_token != null ~}
+    --discovery-token "${kube_token}" \
+%{ endif ~}
+%{ if import_ssl ~}
+	  --discovery-token-ca-cert-hash "sha256:$(openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //')" \
+%{ endif ~}
+    --control-plane \
+    --cri-socket=unix:///var/run/cri-dockerd.sock
+
+  if [[ $? -ne 0 ]]; then
+    echo "join_existing_cluster: Joining existing Control Plane failed. Stopping."
+    exit 1
+  fi
+
+  echo "join_existing_cluster: Step 2 - Adding admin.conf to 'HOME/.kube/config'"
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+  echo "join_existing_cluster: Step 3 - Exporting KUBECONFIG variable"
+  export KUBECONFIG=/etc/kubernetes/admin.conf
+
+  echo "join_existing_cluster: Step 4 - Done."
+
+}
+
+function init_pod_network() {
+
+  echo "init_pod_network: Step 1 - Initializing Pod Network"
+  echo "init_pod_network: Step 1a - Downloading Flannel YAML file"
+  wget -q -O - https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml >> /tmp/kube-flannel.yml
+
+  if [[ $? -ne 0 ]]; then
+    echo "init_pod_network: Downloading Flannel YAML file failed. Stopping."
+    exit 1
+  fi
+
+  echo "init_pod_network: Step 1b - Modifying Flannel YAML file's Namespace"
+  sed -i 's/namespace: kube-flannel/namespace: kube-system/g' /tmp/kube-flannel.yml
+
+  if [[ ! $(grep "namespace: kube-system" /tmp/kube-flannel.yml) ]]; then
+    echo "init_pod_network: Modifying Flannel YAML file's Namespace failed. Stopping."
+    exit 1
+  fi
+
+  echo "init_pod_network: Step 1c - Modifying Flannel YAML file's Pod Network"
+  if [[ $POD_NETWORK != "10.244.0.0/16" ]]; then
+    sed -i "s|10.244.0.0\/16|$POD_NETWORK|g" /tmp/kube-flannel.yml
+
+    if [[ ! $(grep $POD_NETWORK /tmp/kube-flannel.yml) ]]; then
+      echo "init_pod_network: Modifying Flannel YAML file's Pod Network failed. Stopping."
+      exit 1
+    fi
+
+  else
+    echo "init_pod_network: Pod network is already set to $POD_NETWORK. No need to modify."
+  fi
+
+  echo "init_pod_network: Step 2 - Applying Flannel YAML file"
+  kubectl --namespace=kube-system apply -f /tmp/kube-flannel.yml
+
+  if [[ $? -ne 0 ]]; then
+    echo "init_pod_network: Initializing Pod Network failed. Stopping."
+    exit 1
+  fi
+
+  echo "init_pod_network: Step 3 - Cleanup"
+  rm /tmp/kube-flannel.yml
+
+  echo "init_pod_network: Step 4 - Done."
+}
+
+function deploy_on_control_plane() {
+
+  echo "deploy_on_control_plane: Step 1 - Enable deployment of pods on control plane"
+  kubectl taint nodes $HOSTNAME node-role.kubernetes.io/control-plane:NoSchedule --overwrite
+
+  if [[ $? -ne 0 ]]; then
+    echo "deploy_on_control_plane: Deploying pods on control plane failed. Stopping."
+    exit 1
+  fi
+
+  echo "deploy_on_control_plane: Step 2 - Done."
+}
+
+echo "Validating conditions..."
+pre_check
+
+echo "Opening required firewall ports..."
+open_firewall_ports
+
+if [[ $KUBEADM_TASK == "INIT" ]]; then
+  echo "Initializing first Control Plane..."
+  init_first_control_plane
+else
+  echo "Joining Control Plane to an existing cluster..."
+  join_existing_cluster
+fi
+
+echo "Initializing Pod Network..."
+init_pod_network
+
+%{ if pods_on_control_node ~}
+deploy_on_control_plane
+%{ endif ~}

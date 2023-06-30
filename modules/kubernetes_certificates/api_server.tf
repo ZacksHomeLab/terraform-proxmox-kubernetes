@@ -23,7 +23,7 @@ resource "tls_cert_request" "apiserver_ca_csr" {
   ]
 
   ip_addresses = [
-    for ip in concat(local.internal_control_plane_ips, local.external_control_plane_ips) : tostring(ip)
+    for ip in concat([local.apiserver_lb_virtual_ip], local.internal_control_plane_ips, local.external_control_plane_ips) : tostring(ip)
   ]
 }
 

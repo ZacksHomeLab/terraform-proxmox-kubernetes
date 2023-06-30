@@ -14,7 +14,7 @@ locals {
   external_control_plane_ips = var.external_control_plane_ips
 
   # Default Value: kubernetes
-  cluster_name = var.cluster_name
+  cluster_name = "kubernetes"
 
   # Default Value: cluster.local
   cluster_domain = var.cluster_domain
@@ -29,6 +29,8 @@ locals {
   # Default Value: kubernetes.default.svc.cluster.local
   cluster_namespace_fqdn_and_domain = "${local.cluster_namespace_fqdn}.${local.cluster_domain}"
 
+  # Default Value: null
+  apiserver_lb_virtual_ip = length(var.virtual_ip) > 0 ? split("/", var.virtual_ip)[0] : null
 
   # Default Value: kube-apiserver
   apiserver_name = var.apiserver_name

@@ -10,15 +10,21 @@ locals {
   worker_vms           = can(local.inventory["workers"]) ? local.inventory["workers"] : null
   ext_apiserver_lb_vms = can(local.inventory["ext_apiserver_lb"]) ? local.inventory["ext_apiserver_lb"] : null
 
+  # Determine the amount of Virtual Machine to create
   control_plane_count    = var.create_control_plane && can(length(local.control_plane_vms) > 0) ? length(local.control_plane_vms) : 0
   worker_count           = var.create_worker && can(length(local.worker_vms) > 0) ? length(local.worker_vms) : 0
   ext_apiserver_lb_count = var.create_ext_apiserver_lb && can(length(local.ext_apiserver_lb_vms) > 0) ? length(local.ext_apiserver_lb_vms) : 0
 
+  # Load the default values from inventory.yml
   defaults         = try(local.inventory["defaults"])
   default_disks    = { for i, disk in values(local.defaults.disks) : i => disk }
   default_nics     = { for i, nic in values(local.defaults.nics) : i => nic }
   default_settings = local.defaults.settings
 
+  # Determine what address to use for the API Server Load Balancer
+  apiserver_lb_virtual_ip = var.create_ext_apiserver_lb ? var.apiserver_lb_virtual_ip : null
+
+  # These are all the disk settings that can be set on a Virtual Machine
   disk_settings = [
     "storage",
     "size",
@@ -44,6 +50,7 @@ locals {
     "iops_wr_max_length"
   ]
 
+  # These are all the network adapter settings that can be set on a Virtual Machine
   nic_settings = [
     "ip",
     "ip6",
@@ -61,6 +68,7 @@ locals {
     "vlan_tag"
   ]
 
+  # These are all the Virtual Machine settings that can be set on a Virtual Machine
   vm_settings = [
     "automatic_reboot",
     "balloon",

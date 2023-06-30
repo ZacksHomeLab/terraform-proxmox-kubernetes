@@ -25,12 +25,12 @@ resource "local_file" "prepare_ext_apiserver_lb" {
   count = local.create_ext_apiserver_lb
 
   content = templatefile(local.prepare_ext_apiserver_script_template, {
-    vms                 = module.control_planes
-    ext_lb_port         = var.ext_apiserver_lb_port
     apiserver_dest_port = var.apiserver_dest_port
+    ext_lb_port         = var.ext_apiserver_lb_port
     keepalive_router_id = var.keepalive_router_id
     keepalive_pass      = random_password.ext_apiserver_keepalive_pass[0].result
-    virtual_ip          = var.apiserver_lb_virtual_ip
+    virtual_ip          = local.apiserver_lb_virtual_ip
+    vms                 = module.control_planes
   })
 
   filename = local.prepare_ext_apiserver_script_rendered
