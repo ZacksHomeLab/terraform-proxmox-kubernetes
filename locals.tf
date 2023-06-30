@@ -13,7 +13,7 @@ locals {
   # Determine the amount of Virtual Machine to create
   control_plane_count    = var.create_control_plane && can(length(local.control_plane_vms) > 0) ? length(local.control_plane_vms) : 0
   worker_count           = var.create_worker && can(length(local.worker_vms) > 0) ? length(local.worker_vms) : 0
-  ext_apiserver_lb_count = var.create_ext_apiserver_lb && can(length(local.ext_apiserver_lb_vms) > 0) ? length(local.ext_apiserver_lb_vms) : 0
+  ext_apiserver_lb_count = var.create_ext_apiserver_lb && can(length(local.ext_apiserver_lb_vms) > 0) && !var.create_apiserver_lb ? length(local.ext_apiserver_lb_vms) : 0
 
   # Load the default values from inventory.yml
   defaults         = try(local.inventory["defaults"])
@@ -22,7 +22,7 @@ locals {
   default_settings = local.defaults.settings
 
   # Determine what address to use for the API Server Load Balancer
-  apiserver_lb_virtual_ip = var.create_ext_apiserver_lb ? var.apiserver_lb_virtual_ip : null
+  apiserver_lb_virtual_ip = var.apiserver_lb_virtual_ip
 
   # These are all the disk settings that can be set on a Virtual Machine
   disk_settings = [

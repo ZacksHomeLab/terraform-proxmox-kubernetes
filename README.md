@@ -44,13 +44,17 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 | Name | Type |
 |------|------|
 | [local_file.init_kubeadm_script](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
+| [local_file.prepare_apiserver_lb](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
 | [local_file.prepare_control_node_script](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
 | [local_file.prepare_ext_apiserver_lb](https://registry.terraform.io/providers/hashicorp/local/2.4.0/docs/resources/file) | resource |
 | [null_resource.init_kubeadm](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
 | [null_resource.join_kubeadm](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
 | [null_resource.prepare_control_planes](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
+| [null_resource.setup_additional_apiserver_lbs](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
 | [null_resource.setup_ext_apiserver_lb](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
-| [random_password.ext_apiserver_keepalive_pass](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/password) | resource |
+| [null_resource.setup_primary_apiserver_lb](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
+| [random_password.apiserver_keepalived_pass](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/password) | resource |
+| [random_password.ext_apiserver_keepalived_pass](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/password) | resource |
 | [random_string.prefix](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/string) | resource |
 | [random_string.suffix](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/string) | resource |
 
@@ -58,10 +62,13 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_apiserver_dest_port"></a> [apiserver\_dest\_port](#input\_apiserver\_dest\_port) | (String) The default destination port the apiserver will liste on. Default is 8443. | `number` | `6443` | no |
+| <a name="input_apiserver_dest_port"></a> [apiserver\_dest\_port](#input\_apiserver\_dest\_port) | (String) The default destination port the apiserver will liste on. Default is 6443. | `number` | `6443` | no |
+| <a name="input_apiserver_lb_port"></a> [apiserver\_lb\_port](#input\_apiserver\_lb\_port) | (String) The default port for the Apiserver LB will listen on. Default is 6443. | `number` | `6443` | no |
+| <a name="input_apiserver_lb_type"></a> [apiserver\_lb\_type](#input\_apiserver\_lb\_type) | (String) The type of load balancer to use for the API Server. Valid values are 'haproxy' and 'kube-vip'. Default is 'haproxy'. | `string` | `"haproxy"` | no |
 | <a name="input_apiserver_lb_virtual_ip"></a> [apiserver\_lb\_virtual\_ip](#input\_apiserver\_lb\_virtual\_ip) | (String) The Virtual IP address (in CIDR-Notation) the load balancer will listen on. Note: This must be a routable IP that the Control Plane can access. Default is 192.168.2.100/24 | `string` | `"192.168.2.120/24"` | no |
 | <a name="input_cluster_domain"></a> [cluster\_domain](#input\_cluster\_domain) | The domain of your cluster (e.g., mycompany.local). Default is 'cluster.local' | `string` | `"cluster.local"` | no |
 | <a name="input_cluster_namespace"></a> [cluster\_namespace](#input\_cluster\_namespace) | (String) The cluster's namespace. Default is 'default' | `string` | `"default"` | no |
+| <a name="input_create_apiserver_lb"></a> [create\_apiserver\_lb](#input\_create\_apiserver\_lb) | (Bool) Whether to create an API Server Load Balancer on each Control Plane(s). Default is true. | `bool` | `true` | no |
 | <a name="input_create_certificates"></a> [create\_certificates](#input\_create\_certificates) | (Bool) Whether Terraform should generate the necessary certificates. Default is true. | `bool` | `true` | no |
 | <a name="input_create_control_plane"></a> [create\_control\_plane](#input\_create\_control\_plane) | (Bool) Determines if Control Node should be created or destroyed. | `bool` | `true` | no |
 | <a name="input_create_etcd_certificates"></a> [create\_etcd\_certificates](#input\_create\_etcd\_certificates) | "(Bool) Whether Terraform should generate the necessary certificates for etcd.<br>You would disable this functionality if you were to use a service other than etcd.<br><br>Default is true." | `bool` | `true` | no |
@@ -69,7 +76,6 @@ This module assumes you've followed the [Getting Started](https://github.com/Zac
 | <a name="input_create_worker"></a> [create\_worker](#input\_create\_worker) | (Bool) Determines if Worker Node(s) should be created or destroyed. | `bool` | `true` | no |
 | <a name="input_etcd_dest_port"></a> [etcd\_dest\_port](#input\_etcd\_dest\_port) | (Number) The destination port for etcd. Default is 2380. | `number` | `2380` | no |
 | <a name="input_etcd_src_port"></a> [etcd\_src\_port](#input\_etcd\_src\_port) | (Number) The source port for etcd. Default is 2379. | `number` | `2379` | no |
-| <a name="input_ext_apiserver_lb_port"></a> [ext\_apiserver\_lb\_port](#input\_ext\_apiserver\_lb\_port) | (String) The default port the External Apiserver LB will listen on. Default is 8443. | `number` | `6443` | no |
 | <a name="input_keepalive_router_id"></a> [keepalive\_router\_id](#input\_keepalive\_router\_id) | (Number) The Router ID for Keepalive. You would change this number if you have multiple clusters using this module and Keepalive. Default is 51. | `number` | `51` | no |
 | <a name="input_pod_network"></a> [pod\_network](#input\_pod\_network) | (String) Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node. Default value is 10.244.0.0/16 | `string` | `"10.244.0.0/16"` | no |
 | <a name="input_pods_on_control_plane"></a> [pods\_on\_control\_plane](#input\_pods\_on\_control\_plane) | (Bool) Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false. | `bool` | `true` | no |

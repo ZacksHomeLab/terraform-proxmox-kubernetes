@@ -1,3 +1,21 @@
+variable "apiserver_lb_type" {
+  description = "(String) The type of load balancer to use for the API Server. Valid values are 'haproxy' and 'kube-vip'. Default is 'haproxy'."
+  type        = string
+
+  validation {
+    condition     = contains(["haproxy", "kube-vip"], var.apiserver_lb_type)
+    error_message = "Invalid load balancer type. Valid values are 'haproxy' and 'kube-vip'."
+  }
+
+  default = "haproxy"
+}
+
+variable "create_apiserver_lb" {
+  description = "(Bool) Whether to create an API Server Load Balancer on each Control Plane(s). Default is true."
+  type        = bool
+  default     = true
+}
+
 variable "create_certificates" {
   description = "(Bool) Whether Terraform should generate the necessary certificates. Default is true."
   type        = bool
@@ -33,6 +51,13 @@ variable "cluster_namespace" {
   default     = "default"
 }
 
+/*
+variable "deploy_apiserver_lb_on_os" {
+  description = "(Bool) Whether to deploy the API Server Load balancer on the Operating System or as a Pod(s). Default is false (i.e., deploy as a Pod(s))."
+  type        = bool
+  default     = false
+}*/
+
 variable "pod_network" {
   description = "(String) Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node. Default value is 10.244.0.0/16"
   type        = string
@@ -62,13 +87,6 @@ variable "private_key" {
   default     = null
 }
 
-/*
-variable "external_lb_on_control_plane" {
-  description = "(Bool) Defines the ability to deploy an External Load Balancer on each Control Plane. Default is true."
-  type        = bool
-  default     = true
-}*/
-
 variable "pods_on_control_plane" {
   description = "(Bool) Defines the ability to deploy Pods on the Control Plane node. Typically done in small clusters. Default is false."
   type        = bool
@@ -87,12 +105,12 @@ variable "apiserver_lb_virtual_ip" {
   default = "192.168.2.120/24"
 }
 
-variable "ext_apiserver_lb_port" {
-  description = "(String) The default port the External Apiserver LB will listen on. Default is 8443."
+variable "apiserver_lb_port" {
+  description = "(String) The default port for the Apiserver LB will listen on. Default is 6443."
   type        = number
 
   validation {
-    condition     = var.ext_apiserver_lb_port > 0
+    condition     = var.apiserver_lb_port > 0
     error_message = "Invalid Port. Please provide a valid port number."
   }
 
@@ -100,7 +118,7 @@ variable "ext_apiserver_lb_port" {
 }
 
 variable "apiserver_dest_port" {
-  description = "(String) The default destination port the apiserver will liste on. Default is 8443."
+  description = "(String) The default destination port the apiserver will liste on. Default is 6443."
   type        = number
 
   validation {

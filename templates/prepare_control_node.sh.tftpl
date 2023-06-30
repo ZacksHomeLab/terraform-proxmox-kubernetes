@@ -455,6 +455,16 @@ function verify_ssl_certs() {
   echo "verify_ssl_certs: Step 2. Done"
 }
 
+function add_nonlocal_bind() {
+
+  echo "add_nonlocal_bind: Adding nonlocal bind to /etc/sysctl.d/99-sysctl.conf"
+  if [[ ! $(grep -q "net.ipv4.ip_nonlocal_bind\s*=\s*1" /etc/sysctl.d/99-sysctl.conf) ]]; then
+    echo "net.ipv4.ip_nonlocal_bind = 1" >> /etc/sysctl.d/99-sysctl.conf
+    echo "add_nonlocal_bind: Rebooting now."
+    shutdown -r +0
+  fi
+}
+
 PACKAGE_PROVIDER=$(get_package_provider)
 
 echo "Validating conditions..."
@@ -481,6 +491,11 @@ import_ssl_certs
 
 echo "Verify if certificate files need to be modified."
 verify_ssl_certs
+%{ endif ~}
+
+%{ if create_apiserver_lb ~}
+echo "Adding nonlocal bind... If it doesn't exist, the server will reboot. Otherwise, script complete."
+add_nonlocal_bind
 %{ endif ~}
 
 echo "Script complete!"

@@ -19,8 +19,9 @@ resource "local_file" "prepare_control_node_script" {
   count = local.control_plane_count > 0 ? 1 : 0
 
   content = templatefile(local.prepare_node_script_template, {
-    cert_destinations = local.import_certs > 0 ? join(" ", module.certs[0].all_certificates_destinations) : ""
-    import_ssl        = var.create_certificates
+    cert_destinations   = local.import_certs > 0 ? join(" ", module.certs[0].all_certificates_destinations) : ""
+    create_apiserver_lb = var.create_apiserver_lb
+    import_ssl          = var.create_certificates
   })
   filename = local.prepare_node_script_rendered
 }
@@ -32,10 +33,10 @@ resource "local_file" "init_kubeadm_script" {
     apiserver_dest_port  = var.apiserver_dest_port
     cluster_domain       = var.cluster_domain
     cluster_namespace    = var.cluster_namespace
-    enable_apiserver_lb  = var.create_ext_apiserver_lb
+    create_apiserver_lb  = var.create_apiserver_lb || var.create_ext_apiserver_lb ? true : false
     etcd_dest_port       = var.etcd_dest_port
     etcd_src_port        = var.etcd_src_port
-    lb_port              = var.ext_apiserver_lb_port
+    lb_port              = var.apiserver_lb_port
     import_ssl           = var.create_certificates
     kube_token           = local.kube_token
     pod_network          = var.pod_network
@@ -114,7 +115,7 @@ resource "null_resource" "init_kubeadm" {
 
     Otherwise, kubeadm init / kubeadmin join will fail.
   */
-  depends_on = [null_resource.prepare_control_planes, null_resource.setup_ext_apiserver_lb]
+  depends_on = [null_resource.prepare_control_planes, null_resource.setup_ext_apiserver_lb, null_resource.setup_primary_apiserver_lb]
 }
 
 /*

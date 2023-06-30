@@ -41,7 +41,7 @@ function pre_check() {
     exit 1
   fi
 
-  %{ if enable_apiserver_lb ~}
+  %{ if create_apiserver_lb ~}
   echo "pre_check: Check if API Server Destination Port is greater than 0."
   if [[ $LB_PORT -gt 0 ]]; then
     echo "pre_check: API Server Destination Port ($LB_PORT) is greater than 0."
@@ -154,7 +154,7 @@ function init_first_control_plane() {
       --pod-network-cidr=$POD_NETWORK \
       --service-cidr=$SERVICE_NETWORK \
       --service-dns-domain=$CLUSTER_DOMAIN \
-%{ if enable_apiserver_lb && virtual_ip != null ~}
+%{ if create_apiserver_lb && virtual_ip != null ~}
       --control-plane-endpoint=$APISERVER_VIP_NO_MASK:$LB_PORT \
 %{ endif ~}
 %{ if kube_token != null ~}
@@ -184,7 +184,7 @@ function join_existing_cluster() {
   echo "join_existing_cluster: Step 1 - Joining Existing Cluster"
 
   kubeadm join \
-%{ if enable_apiserver_lb && virtual_ip != null ~}
+%{ if create_apiserver_lb && virtual_ip != null ~}
     $APISERVER_VIP_NO_MASK:$LB_PORT \
 %{ endif ~}
 %{ if kube_token != null ~}
