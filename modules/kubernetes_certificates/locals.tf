@@ -6,16 +6,15 @@ locals {
   etcd_cert_directory = trimsuffix(var.etcd_certificate_directory, "/")
 
   # Name of the control plane
-  control_plane_name = var.control_plane_name
-
+  control_plane_names = var.control_plane_names
 
   # Internal IP Address of Control Plane (e.g., 10.96.0.1)
-  internal_control_plane_ip = var.internal_control_plane_ip
+  internal_control_plane_ips = var.internal_control_plane_ips
   # External IP Address of Control Plane (e.g., 192.168.2.126)
-  external_control_plane_ip = var.external_control_plane_ip
+  external_control_plane_ips = var.external_control_plane_ips
 
   # Default Value: kubernetes
-  cluster_name = var.cluster_name
+  cluster_name = "kubernetes"
 
   # Default Value: cluster.local
   cluster_domain = var.cluster_domain
@@ -29,6 +28,9 @@ locals {
   cluster_namespace_fqdn = "${local.cluster_name_and_namespace}.svc"
   # Default Value: kubernetes.default.svc.cluster.local
   cluster_namespace_fqdn_and_domain = "${local.cluster_namespace_fqdn}.${local.cluster_domain}"
+
+  # Default Value: null
+  apiserver_lb_virtual_ip = length(var.virtual_ip) > 0 ? split("/", var.virtual_ip)[0] : null
 
   # Default Value: kube-apiserver
   apiserver_name = var.apiserver_name

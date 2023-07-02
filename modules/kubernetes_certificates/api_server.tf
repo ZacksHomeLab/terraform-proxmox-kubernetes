@@ -19,20 +19,11 @@ resource "tls_cert_request" "apiserver_ca_csr" {
   }
 
   dns_names = [
-    local.control_plane_name,
-    local.cluster_name,
-    local.cluster_name_and_namespace,
-    local.cluster_namespace_fqdn,
-    local.cluster_namespace_fqdn_and_domain
+    for name in concat(local.control_plane_names, tolist([local.cluster_name, local.cluster_name_and_namespace, local.cluster_namespace_fqdn, local.cluster_namespace_fqdn_and_domain])) : tostring(name)
   ]
 
   ip_addresses = [
-    local.internal_control_plane_ip,
-    local.external_control_plane_ip
-  ]
-
-  depends_on = [
-    data.tls_public_key.apiserver_key
+    for ip in concat([local.apiserver_lb_virtual_ip], local.internal_control_plane_ips, local.external_control_plane_ips) : tostring(ip)
   ]
 }
 
@@ -54,11 +45,6 @@ resource "tls_locally_signed_cert" "apiserver_crt" {
     "digital_signature",
     "key_encipherment",
     "server_auth"
-  ]
-
-  depends_on = [
-    data.tls_certificate.ca_crt,
-    data.tls_public_key.ca_key
   ]
 }
 
@@ -82,10 +68,6 @@ resource "tls_cert_request" "apiserver_client_csr" {
     common_name  = local.apiserver_kubelet_client_cn
     organization = "system:masters"
   }
-
-  depends_on = [
-    data.tls_public_key.apiserver_kubelet_client_key
-  ]
 }
 
 
@@ -107,11 +89,6 @@ resource "tls_locally_signed_cert" "apiserver_kubelet_client_crt" {
     "digital_signature",
     "key_encipherment",
     "client_auth"
-  ]
-
-  depends_on = [
-    data.tls_certificate.ca_crt,
-    data.tls_public_key.ca_key
   ]
 }
 
@@ -135,10 +112,6 @@ resource "tls_cert_request" "apiserver_etcd_client_csr" {
     common_name  = local.apiserver_etcd_client
     organization = "system:masters"
   }
-
-  depends_on = [
-    data.tls_public_key.apiserver_etcd_client_key
-  ]
 }
 
 /*
@@ -159,11 +132,6 @@ resource "tls_locally_signed_cert" "apiserver_etcd_client_crt" {
     "digital_signature",
     "key_encipherment",
     "client_auth"
-  ]
-
-  depends_on = [
-    data.tls_certificate.etcd_ca_crt,
-    data.tls_public_key.etcd_ca_key
   ]
 }
 

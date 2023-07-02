@@ -32,10 +32,6 @@ resource "tls_self_signed_cert" "ca_crt" {
   subject {
     common_name = local.cluster_name
   }
-
-  depends_on = [
-    data.tls_public_key.ca_key
-  ]
 }
 
 /*

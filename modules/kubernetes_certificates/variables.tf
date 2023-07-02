@@ -28,16 +28,9 @@ variable "etcd_certificate_directory" {
 }
 
 
-variable "control_plane_name" {
-  description = "(String) The name of the Control Plane. This can be the machine's name."
-  type        = string
-}
-
-variable "cluster_name" {
-  description = "(String) The name of your Kubernetes Cluster. Default is 'kubernetes'."
-  type        = string
-  nullable    = false
-  default     = "kubernetes"
+variable "control_plane_names" {
+  description = "[List(String)] The name of the Control Plane(s). This can be the Virtual Machine's name."
+  type        = list(string)
 }
 
 variable "cluster_domain" {
@@ -137,22 +130,28 @@ variable "validity_period_hours" {
   default = 87600
 }
 
-variable "internal_control_plane_ip" {
-  description = "(String) The Internal IP Address of the Control Plane."
-  type        = string
+variable "internal_control_plane_ips" {
+  description = "[List(String)] The Internal IP Address(es) of the Control Plane(s)."
+  type        = list(string)
 
   validation {
-    condition     = can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", var.internal_control_plane_ip))
+    condition     = alltrue([for ip in var.internal_control_plane_ips : can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", ip))])
     error_message = "Invalid IP Address. Please provide an IP Address that meets IPv4 CIDR-Notation (e.g., 192.168.1.1)."
   }
 }
 
-variable "external_control_plane_ip" {
-  description = "(String) The External IP Address of the Control Plane."
-  type        = string
+variable "external_control_plane_ips" {
+  description = "[List(String)] The External IP Address(es) of the Control Plane(s)."
+  type        = list(string)
 
   validation {
-    condition     = can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", var.external_control_plane_ip))
+    condition     = alltrue([for ip in var.external_control_plane_ips : can(regex("^(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))$", ip))])
     error_message = "Invalid IP Address. Please provide an IP Address that meets IPv4 CIDR-Notation (e.g., 192.168.1.1)."
   }
+}
+
+variable "virtual_ip" {
+  description = "The Virtual IP Address of the Load Balancer to handle API Server requests. Typically used with KeepaliveD/HAProxy."
+  type        = string
+  nullable    = true
 }

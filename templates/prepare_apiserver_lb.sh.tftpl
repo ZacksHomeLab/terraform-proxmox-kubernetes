@@ -1,0 +1,583 @@
+#!/bin/bash
+
+export DEBIAN_FRONTEND=noninteractive
+
+exec 3>&1 4>&2
+trap 'exec 2>&4 1>&3' 0 1 2 3 15
+exec 1>>~/log.out 2>&1
+
+USER_ID=$(id -u)
+
+APISERVER_HOST_IP="$1"
+APISERVER_DEST_PORT=${apiserver_dest_port}
+APISERVER_VIP="${virtual_ip}"
+APISERVER_VIP_NO_MASK=$(echo $APISERVER_VIP | sed -E 's/\/([0-9]+)?$//')
+
+# The load balancer will listen on this port
+LB_PORT=${lb_port}
+
+KEEPALIVE_PASS="$2"
+KEEPALIVE_ROUTER_ID=${keepalive_router_id}
+KEEPALIVE_SCRIPT_USER="keepalived_script"
+KEEPALIVE_STATE="$3"
+
+if [ "$KEEPALIVE_STATE" == "MASTER" ]; then
+  PRIORITY=100
+else
+  PRIORITY=99
+fi
+
+function pre_check() {
+
+  echo "pre_check: Validating required variables are set."
+
+  echo "pre_check: Check if running as Sudo."
+  if [ $USER_ID -gt 0 ]; then
+    echo "pre_check: This script requires sudo privilege to run. Stopping"
+    exit 1
+  fi
+
+  echo "pre_check: Check if Keepalive Router ID is greater than 0."
+  if [[ ! $KEEPALIVE_ROUTER_ID -gt 0 ]]; then
+    echo "pre_check: KEEPALIVE_ROUTER_ID must be greater than 0. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if API Server Destination Port is greater than 0."
+  if [[ ! $LB_PORT -gt 0 ]]; then
+    echo "pre_check: LB_PORT must be greater than 0. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if provided IP Address exists on server"
+  if [[ ! -n "$(hostname -I | grep $APISERVER_HOST_IP)" ]]; then
+    echo "pre_check: IP $APISERVER_HOST_IP does not exist on this server. Stopping."
+    exit 1
+  fi
+
+  echo "pre_check: Check if State is set correctly."
+  if [[ ! $KEEPALIVE_STATE == "MASTER" ]] && [[ ! $KEEPALIVE_STATE == "BACKUP" ]]; then
+    echo "pre_check: State is missing. It should be MASTER or BACKUP."
+    exit 1
+  fi
+
+  echo "pre_check: Check if KEEPALIVE_PASS is set."
+  if [[ ! -n $KEEPALIVE_PASS ]]; then
+    echo "pre_check: Keepalive pass is not set. Stopping."
+    exit 1
+  fi
+
+}
+
+function get_nic_name() {
+
+  # Retrieve network adapter name (e.g., eth0, eth1)
+  local ADAPTER=$(ip addr | awk -vtarget_addr=$APISERVER_HOST_IP '
+/^[0-9]+/ {
+  iface=substr($2, 0, length($2)-1)
+}
+
+$1 == "inet" {
+  split($2, addr, "/")
+  if (addr[1] == target_addr) {
+    print iface
+  }
+}
+')
+
+  if [[ ! -n $ADAPTER ]]; then
+    echo "get_nic_name: Did not find a network adapter matching the provided IP Address. Stopping."
+    exit 1
+  else
+    echo $ADAPTER
+  fi
+}
+
+function get_package_provider() {
+  # Determine our package provider
+  local OS_TYPE=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
+  local APT_GET=$(command -v apt-get)
+  local APT=$(command -v apt)
+
+  if [[ $OS_TYPE = "debian" ]]; then
+
+    # Check if apt-get is installed
+    if [[ -n $($APT_GET | tr -d '[:space:]') ]]; then
+      echo "apt-get"
+    else
+
+      # Check if apt-get is installed
+      if [[ -n $($APT | tr -d '[:space:]') ]]; then
+        echo "apt"
+      else
+
+        # Neither apt or apt-get exist
+        echo "get_package_provider: Can not find 'apt' or 'apt-get'"
+        exit 1
+      fi
+    fi
+  fi
+}
+
+function is_apt_lock() {
+  lsof -t "/var/lib/apt/lists/lock" >/dev/null 2>&1 ||
+  lsof -t "/var/lib/dpkg/lock-frontend" >/dev/null 2>&1 ||
+  lsof -t "/var/lib/dpkg/lock" >/dev/null 2>&1
+}
+
+function wait_for_apt_unlock() {
+
+  local APT_LOCK_MAX_WAIT_TIME=600
+  local APT_RETRY_INTERVAL=10
+  local wait_time=0
+
+  while is_apt_lock; do
+    if [[ $wait_time -ge $APT_LOCK_MAX_WAIT_TIME ]]; then
+      echo "wait_for_apt_unlock: Timeout reached. Lock file is still present."
+      exit 1
+    fi
+
+    echo "wait_for_apt_unlock: Waiting for apt lock file to be released..."
+    sleep $APT_RETRY_INTERVAL
+
+    wait_time=$(($wait_time + $APT_RETRY_INTERVAL))
+
+  done
+}
+
+function upgrade_packages() {
+
+  case $PACKAGE_PROVIDER in
+    apt)
+        wait_for_apt_unlock
+        apt -qqy upgrade
+      ;;
+
+    apt-get)
+        # The timeout is to prevent E: Unable to acquire the dpkg frontend lock
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 upgrade
+      ;;
+
+    *)
+      echo "upgrade_packages: Unknown package provider."
+      exit 1
+      ;;
+  esac
+
+  if [[ $? -ne 0 ]]; then
+    echo "upgrade_packages: 'apt' failed upgrading with exit code '$?'"
+    exit 1
+  fi
+}
+
+function update_packages() {
+
+  case $PACKAGE_PROVIDER in
+    apt)
+        wait_for_apt_unlock
+        apt -qqy update
+      ;;
+
+    apt-get)
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 update
+      ;;
+
+    *)
+      echo "update_packages: Unknown package provider."
+      exit 1
+      ;;
+  esac
+
+  if [[ $? -ne 0 ]]; then
+    echo "update_packages: '$PACKAGE_PROVIDER' failed updating with exit code '$?'"
+    exit 1
+  fi
+}
+
+function install_packages() {
+
+  packages=$(printf "%s " "$@")
+
+  case $PACKAGE_PROVIDER in
+    apt)
+        wait_for_apt_unlock
+        apt -qqy install $packages
+      ;;
+
+    apt-get)
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 install $packages
+      ;;
+
+    *)
+      echo "install_packages: Unknown package provider."
+      exit 1
+      ;;
+  esac
+
+  if [[ $? -ne 0 ]]; then
+    echo "install_packages: '$PACKAGE_PROVIDER' failed installing packages with exit code '$?'"
+    exit 1
+  fi
+}
+
+function remove_packages() {
+  packages=$(printf "%s " "$@")
+
+  case $PACKAGE_PROVIDER in
+    apt)
+        wait_for_apt_unlock
+        apt -qqy remove $packages
+      ;;
+
+    apt-get)
+        wait_for_apt_unlock
+        apt-get -qqy -o DPkg::Lock::Timeout=60 remove $packages
+      ;;
+
+    *)
+      echo "remove_packages: Unknown package provider."
+      exit 1
+      ;;
+  esac
+
+  if [[ $? -ne 0 ]]; then
+    echo "remove_packages: '$PACKAGE_PROVIDER' failed removing packages with exit code '$?'"
+    exit 1
+  fi
+
+}
+
+function prepare_env() {
+  # Install / Upgrade packages
+  echo "prepare_env: Performing updates/upgrades..."
+
+  update_packages
+  upgrade_packages
+
+  # Install required packages
+  echo "prepare_env: Installing required packages..."
+  install_packages curl gnupg lsb-release git wget jq
+
+  # Disable Swap
+  echo "prepare_env: Disabling swap..."
+  swapoff -a
+  sed -i 's/^\/swap/#\/swap/' /etc/fstab
+}
+
+function config_firewall() {
+
+  echo "config_firewall: Adding firewall rules..."
+
+  echo "config_firewall: Step 1a - Disable UFW (if active)"
+  if [[ $(ufw status | grep -i "Status: active") ]]; then
+    echo "config_firewall: UFW is active. Disabling..."
+    ufw disable
+  fi
+
+  echo "config_firewall: Step 1b - Stop ufw"
+  if [[ $(systemctl status ufw | grep -i "Active: active") ]]; then
+    systemctl stop ufw
+  fi
+
+  echo "config_firewall: Step 2a - Install firewalld"
+  install_packages firewalld
+
+  echo "config_firewall: Step 2b - Enable firewalld"
+  systemctl enable firewalld --now
+
+  echo "config_firewall: Step 3 - Allow VRRP Traffic from Keepalivd"
+  if [[ ! $(firewall-cmd --zone=public --list-rich-rules | grep -i "\"224.0.0.18\" protocol value=\"112\" accept") ]]; then
+    echo "config_firewall: Adding VRRP traffic to firewall"
+
+    firewall-cmd --zone=public --add-rich-rule='rule family="ipv4" destination address="224.0.0.18" protocol value="112" accept' --permanent
+    firewall-cmd --reload
+  else
+    echo "config_firewall: VRRP traffic already allowed"
+  fi
+
+  echo "config_firewall: Step 4 - Allow Kubernetes API Server Traffic"
+  if [[ ! $(firewall-cmd --zone=public --list-ports | grep -i "$LB_PORT/tcp") ]]; then
+    echo "config_firewall: Adding port $LB_PORT to firewall"
+
+    firewall-cmd --zone=public --add-port=$LB_PORT/tcp --permanent
+    firewall-cmd --reload
+  else
+    echo "config_firewall: Port $LB_PORT already added to firewall"
+  fi
+
+}
+
+function install_keepalived() {
+  install_packages keepalived
+}
+
+function setup_keepalived() {
+
+  local KEEPALIVE_CONF="/etc/keepalived/keepalived.conf"
+  local KEEPALIVE_DIR=$(dirname "$KEEPALIVE_CONF")
+  local APISERVER_CHECK_SCRIPT="/etc/keepalived/check_apiserver.sh"
+  local APISERVER_CHECK_DIR=$(dirname "$APISERVER_CHECK_SCRIPT")
+
+  echo "setup_keepalive: Step 1a - Create KeepaliveD directory (if it doesn't exist)"
+  if [[ ! -d $KEEPALIVE_DIR ]]; then
+    echo "setup_keepalive: Creating directory /etc/keepalived"
+    mkdir -p $KEEPALIVE_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_keepalive: Error creating directory $KEEPALIVE_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_keepalive: Directory $KEEPALIVE_DIR already exists"
+  fi
+
+  echo "setup_keepalive: Step 1b - Create APIServer Check Script directory (if it doesn't exist)"
+  if [[ ! -d $APISERVER_CHECK_DIR ]]; then
+    echo "setup_keepalive: Creating directory /etc/keepalived"
+    mkdir -p $APISERVER_CHECK_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_keepalive: Error creating directory $APISERVER_CHECK_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_keepalive: Directory $APISERVER_CHECK_DIR already exists"
+  fi
+
+  echo "setup_keepalive: step 2a - Create script user $KEEPALIVE_SCRIPT_USER (if it doesn't exist)"
+  if [ ! $(id $KEEPALIVE_SCRIPT_USER &>/dev/null) 2>&1 ]; then
+    echo "setup_keepalive: User doesn't exist. Creating now."
+    useradd -r $KEEPALIVE_SCRIPT_USER
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_keepalive: Error creating user $KEEPALIVE_SCRIPT_USER. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_keepalive: User $KEEPALIVE_SCRIPT_USER already exists"
+  fi
+
+  echo "setup_keepalive: Step 2b - Creating $KEEPALIVE_CONF"
+  tee $KEEPALIVE_CONF &>/dev/null <<EOF
+global_defs {
+    router_id LVS_DEVEL
+    enable_script_security
+}
+vrrp_script check_apiserver {
+  script "$APISERVER_CHECK_SCRIPT"
+  interval 3
+  weight -2
+  fall 10
+  rise 2
+}
+
+vrrp_instance VI_1 {
+    state $KEEPALIVE_STATE
+    interface $NIC
+    virtual_router_id $KEEPALIVE_ROUTER_ID
+    priority $PRIORITY
+    authentication {
+        auth_type PASS
+        auth_pass $KEEPALIVE_PASS
+    }
+    virtual_ipaddress {
+        $APISERVER_VIP
+    }
+    track_script {
+        check_apiserver
+    }
+}
+EOF
+
+  echo "setup_keepalive: Step 2c - Verify is keepalived.conf exists after creation."
+  if [ ! -e "$KEEPALIVE_CONF" ]; then
+    echo "setup_keepalive: file '$KEEPALIVE_CONF' does not exist. Stopping."
+    exit 1
+  fi
+
+  echo "setup_keepalive: Step 3a - Creating $APISERVER_CHECK_SCRIPT"
+  tee $APISERVER_CHECK_SCRIPT &>/dev/null <<EOF
+#!/bin/sh
+
+errorExit() {
+    echo "*** $*" 1>&2
+    exit 1
+}
+
+curl --silent --max-time 2 --insecure https://localhost:$LB_PORT/ -o /dev/null || errorExit "Error GET https://localhost:$LB_PORT/"
+if ip addr | grep -q $APISERVER_VIP; then
+    curl --silent --max-time 2 --insecure https://$APISERVER_VIP_NO_MASK:$LB_PORT/ -o /dev/null || errorExit "Error GET https://$APISERVER_VIP_NO_MASK:$LB_PORT/"
+fi
+EOF
+
+  echo "setup_keepalive: Step 3b - Verify is check_apiserver exists after creation."
+  if [ ! -e "$APISERVER_CHECK_SCRIPT" ]; then
+    echo "setup_keepalive: file '$APISERVER_CHECK_SCRIPT' does not exist. Stopping."
+    exit 1
+  fi
+
+  echo "setup_keepalive: Step 3c - Set appropriate permissions for $APISERVER_CHECK_SCRIPT"
+  chmod +x $APISERVER_CHECK_SCRIPT
+  chown $KEEPALIVE_SCRIPT_USER $APISERVER_CHECK_SCRIPT
+
+  echo "setup_keepalive: Step 4 - Done"
+}
+
+function install_haproxy() {
+  install_packages haproxy
+}
+
+function setup_haproxy() {
+
+  local HAPROXY_CONF="/etc/haproxy/haproxy.cfg"
+  local HAPROXY_CONF_DIR=$(dirname "$HAPROXY_CONF")
+  local APISERVER_CHECK_SCRIPT="/etc/keepalived/check_apiserver.sh"
+  local APISERVER_CHECK_DIR=$(dirname "$APISERVER_CHECK_SCRIPT")
+
+  echo "setup_haproxy: Step 1a - Create HAProxy directory (if it doesn't exist)"
+  if [[ ! -d $HAPROXY_CONF_DIR ]]; then
+    echo "setup_haproxy: Creating directory $HAPROXY_CONF_DIR"
+    mkdir -p $HAPROXY_CONF_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_haproxy: Error creating directory $HAPROXY_CONF_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_haproxy: Directory $HAPROXY_CONF_DIR already exists"
+  fi
+
+  echo "setup_haproxy: Step 1b - Create APIServer Check Script directory (if it doesn't exist)"
+  if [[ ! -d $APISERVER_CHECK_DIR ]]; then
+    echo "setup_haproxy: Creating directory $APISERVER_CHECK_DIR"
+    mkdir -p $APISERVER_CHECK_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_haproxy: Error creating directory $APISERVER_CHECK_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_haproxy: Directory $APISERVER_CHECK_DIR already exists"
+  fi
+
+  echo "setup_haproxy: Step 2a - Creating $HAPROXY_CONF"
+  tee $HAPROXY_CONF &>/dev/null <<EOF
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 1
+    timeout http-request    10s
+    timeout queue           20s
+    timeout connect         5s
+    timeout client          20s
+    timeout server          20s
+    timeout http-keep-alive 10s
+    timeout check           10s
+
+#---------------------------------------------------------------------
+# apiserver frontend which proxys to the control plane nodes
+#---------------------------------------------------------------------
+frontend apiserver
+    bind *:$LB_PORT
+    mode tcp
+    option tcplog
+    default_backend apiserver
+
+#---------------------------------------------------------------------
+# round robin balancing for apiserver
+#---------------------------------------------------------------------
+backend apiserver
+    option httpchk GET /healthz
+    http-check expect status 200
+    mode tcp
+    option ssl-hello-chk
+    balance roundrobin
+  %{ for vm in vms ~}
+      server ${vm.name} ${vm.ssh_settings.ssh_host}:$APISERVER_DEST_PORT check
+  %{ endfor ~}
+
+EOF
+
+  echo "setup_haproxy: Step 2b - Verify if '$HAPROXY_CONF' exists after creation."
+  if [[ ! -e $HAPROXY_CONF ]]; then
+    echo "setup_haproxy: file '$HAPROXY_CONF' does not exist. Stopping."
+    exit 1
+  fi
+
+  echo "setup_haproxy: Step 3 - Done"
+}
+
+
+function start_services() {
+
+  echo "start_services: Starting haproxy & keepalived"
+
+  systemctl enable haproxy --now
+  systemctl enable keepalived --now
+}
+
+function add_nonlocal_bind() {
+
+  echo "add_nonlocal_bind: Adding nonlocal bind to /etc/sysctl.d/99-sysctl.conf"
+  if [[ ! $(grep -q "net.ipv4.ip_nonlocal_bind\s*=\s*1" /etc/sysctl.d/99-sysctl.conf) ]]; then
+    echo "net.ipv4.ip_nonlocal_bind = 1" >> /etc/sysctl.d/99-sysctl.conf
+    echo "add_nonlocal_bind: Rebooting now."
+    shutdown -r +0
+  fi
+}
+
+echo "Validate variables..."
+pre_check
+
+PACKAGE_PROVIDER=$(get_package_provider)
+
+echo "Gathering network adapter name based off of IP $APISERVER_HOST_IP"
+NIC=$(get_nic_name)
+
+echo "Waiting for apt lock..."
+wait_for_apt_unlock
+
+echo "Prepare virtual machine with required packages..."
+prepare_env
+
+echo "Prepare firewall rules..."
+config_firewall
+
+echo "Deploying KeepaliveD & HAProxy on the host operating system..."
+
+echo "Installing keepalived..."
+install_keepalived
+
+echo "Installing haproxy..."
+install_haproxy
+
+echo "Configuring keepalived..."
+setup_keepalived
+
+echo "Configuring haproxy..."
+setup_haproxy
+
+echo "Starting haproxy & keepalived..."
+start_services
+
+echo "Script complete."
