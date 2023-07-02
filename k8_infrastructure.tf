@@ -115,8 +115,10 @@ module "ext_apiserver_lb" {
   sshkeys          = local.ext_apiserver_lb_settings[count.index].sshkeys
   sockets          = local.ext_apiserver_lb_settings[count.index].sockets
   tablet           = true
-  tags             = local.ext_apiserver_lb_settings[count.index].tags != null ? local.ext_apiserver_lb_settings[count.index].tags : []
-  target_node      = local.ext_apiserver_lb_target_node[count.index]
-  vm_name          = local.ext_apiserver_lb_vm_name[count.index]
-  vmid             = local.ext_apiserver_lb_settings[count.index].vm_id
+  #tags             = length(local.ext_apiserver_lb_settings[count.index].tags) > 0 ? [for tag in local.ext_apiserver_lb_settings[count.index].tags : tag] : []
+  #tags             = local.ext_apiserver_lb_settings[count.index].tags != null ? local.ext_apiserver_lb_settings[count.index].tags : []
+  target_node = local.ext_apiserver_lb_target_node[count.index]
+  vm_name     = local.ext_apiserver_lb_vm_name[count.index]
+  vmid        = local.ext_apiserver_lb_settings[count.index].vm_id
+
 }

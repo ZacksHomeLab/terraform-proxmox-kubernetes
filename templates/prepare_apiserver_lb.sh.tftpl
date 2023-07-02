@@ -4,7 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 exec 3>&1 4>&2
 trap 'exec 2>&4 1>&3' 0 1 2 3 15
-exec 1>>/tmp/log.out 2>&1
+exec 1>>~/log.out 2>&1
 
 USER_ID=$(id -u)
 
@@ -317,9 +317,37 @@ function install_keepalived() {
 function setup_keepalived() {
 
   local KEEPALIVE_CONF="/etc/keepalived/keepalived.conf"
+  local KEEPALIVE_DIR=$(dirname "$KEEPALIVE_CONF")
   local APISERVER_CHECK_SCRIPT="/etc/keepalived/check_apiserver.sh"
+  local APISERVER_CHECK_DIR=$(dirname "$APISERVER_CHECK_SCRIPT")
 
-  echo "setup_keepalive: step 1a - Create script user $KEEPALIVE_SCRIPT_USER (if it doesn't exist)"
+  echo "setup_keepalive: Step 1a - Create KeepaliveD directory (if it doesn't exist)"
+  if [[ ! -d $KEEPALIVE_DIR ]]; then
+    echo "setup_keepalive: Creating directory /etc/keepalived"
+    mkdir -p $KEEPALIVE_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_keepalive: Error creating directory $KEEPALIVE_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_keepalive: Directory $KEEPALIVE_DIR already exists"
+  fi
+
+  echo "setup_keepalive: Step 1b - Create APIServer Check Script directory (if it doesn't exist)"
+  if [[ ! -d $APISERVER_CHECK_DIR ]]; then
+    echo "setup_keepalive: Creating directory /etc/keepalived"
+    mkdir -p $APISERVER_CHECK_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_keepalive: Error creating directory $APISERVER_CHECK_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_keepalive: Directory $APISERVER_CHECK_DIR already exists"
+  fi
+
+  echo "setup_keepalive: step 2a - Create script user $KEEPALIVE_SCRIPT_USER (if it doesn't exist)"
   if [ ! $(id $KEEPALIVE_SCRIPT_USER &>/dev/null) 2>&1 ]; then
     echo "setup_keepalive: User doesn't exist. Creating now."
     useradd -r $KEEPALIVE_SCRIPT_USER
@@ -328,9 +356,11 @@ function setup_keepalived() {
       echo "setup_keepalive: Error creating user $KEEPALIVE_SCRIPT_USER. Stopping."
       exit 1
     fi
+    else
+      echo "setup_keepalive: User $KEEPALIVE_SCRIPT_USER already exists"
   fi
 
-  echo "setup_keepalive: Step 1b - Creating $KEEPALIVE_CONF"
+  echo "setup_keepalive: Step 2b - Creating $KEEPALIVE_CONF"
   tee $KEEPALIVE_CONF &>/dev/null <<EOF
 global_defs {
     router_id LVS_DEVEL
@@ -362,13 +392,13 @@ vrrp_instance VI_1 {
 }
 EOF
 
-  echo "setup_keepalive: Step 1c - Verify is keepalived.conf exists after creation."
+  echo "setup_keepalive: Step 2c - Verify is keepalived.conf exists after creation."
   if [ ! -e "$KEEPALIVE_CONF" ]; then
     echo "setup_keepalive: file '$KEEPALIVE_CONF' does not exist. Stopping."
     exit 1
   fi
 
-  echo "setup_keepalive: Step 2a - Creating $APISERVER_CHECK_SCRIPT"
+  echo "setup_keepalive: Step 3a - Creating $APISERVER_CHECK_SCRIPT"
   tee $APISERVER_CHECK_SCRIPT &>/dev/null <<EOF
 #!/bin/sh
 
@@ -383,17 +413,17 @@ if ip addr | grep -q $APISERVER_VIP; then
 fi
 EOF
 
-  echo "setup_keepalive: Step 2b - Verify is check_apiserver exists after creation."
+  echo "setup_keepalive: Step 3b - Verify is check_apiserver exists after creation."
   if [ ! -e "$APISERVER_CHECK_SCRIPT" ]; then
     echo "setup_keepalive: file '$APISERVER_CHECK_SCRIPT' does not exist. Stopping."
     exit 1
   fi
 
-  echo "setup_keepalive: Step 2c - Set appropriate permissions for $APISERVER_CHECK_SCRIPT"
+  echo "setup_keepalive: Step 3c - Set appropriate permissions for $APISERVER_CHECK_SCRIPT"
   chmod +x $APISERVER_CHECK_SCRIPT
   chown $KEEPALIVE_SCRIPT_USER $APISERVER_CHECK_SCRIPT
 
-  echo "setup_keepalive: Step 3 - Done"
+  echo "setup_keepalive: Step 4 - Done"
 }
 
 function install_haproxy() {
@@ -403,9 +433,37 @@ function install_haproxy() {
 function setup_haproxy() {
 
   local HAPROXY_CONF="/etc/haproxy/haproxy.cfg"
+  local HAPROXY_CONF_DIR=$(dirname "$HAPROXY_CONF")
   local APISERVER_CHECK_SCRIPT="/etc/keepalived/check_apiserver.sh"
+  local APISERVER_CHECK_DIR=$(dirname "$APISERVER_CHECK_SCRIPT")
 
-  echo "setup_haproxy: Step 1a - Creating $HAPROXY_CONF"
+  echo "setup_haproxy: Step 1a - Create HAProxy directory (if it doesn't exist)"
+  if [[ ! -d $HAPROXY_CONF_DIR ]]; then
+    echo "setup_haproxy: Creating directory $HAPROXY_CONF_DIR"
+    mkdir -p $HAPROXY_CONF_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_haproxy: Error creating directory $HAPROXY_CONF_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_haproxy: Directory $HAPROXY_CONF_DIR already exists"
+  fi
+
+  echo "setup_haproxy: Step 1b - Create APIServer Check Script directory (if it doesn't exist)"
+  if [[ ! -d $APISERVER_CHECK_DIR ]]; then
+    echo "setup_haproxy: Creating directory $APISERVER_CHECK_DIR"
+    mkdir -p $APISERVER_CHECK_DIR
+
+    if [[ $? -ne 0 ]]; then
+      echo "setup_haproxy: Error creating directory $APISERVER_CHECK_DIR. Stopping."
+      exit 1
+    fi
+    else
+      echo "setup_haproxy: Directory $APISERVER_CHECK_DIR already exists"
+  fi
+
+  echo "setup_haproxy: Step 2a - Creating $HAPROXY_CONF"
   tee $HAPROXY_CONF &>/dev/null <<EOF
 #---------------------------------------------------------------------
 # Global settings
@@ -460,14 +518,15 @@ backend apiserver
 
 EOF
 
-  echo "setup_haproxy: Step 1b - Verify if '$HAPROXY_CONF' exists after creation."
+  echo "setup_haproxy: Step 2b - Verify if '$HAPROXY_CONF' exists after creation."
   if [[ ! -e $HAPROXY_CONF ]]; then
     echo "setup_haproxy: file '$HAPROXY_CONF' does not exist. Stopping."
     exit 1
   fi
 
-  echo "setup_haproxy: Step 2 - Done"
+  echo "setup_haproxy: Step 3 - Done"
 }
+
 
 function start_services() {
 
@@ -504,14 +563,16 @@ prepare_env
 echo "Prepare firewall rules..."
 config_firewall
 
+echo "Deploying KeepaliveD & HAProxy on the host operating system..."
+
 echo "Installing keepalived..."
 install_keepalived
 
-echo "Configuring keepalived..."
-setup_keepalived
-
 echo "Installing haproxy..."
 install_haproxy
+
+echo "Configuring keepalived..."
+setup_keepalived
 
 echo "Configuring haproxy..."
 setup_haproxy
@@ -519,5 +580,4 @@ setup_haproxy
 echo "Starting haproxy & keepalived..."
 start_services
 
-echo "Adding nonlocal bind... If it doesn't exist, the server will reboot. Otherwise, script complete."
-add_nonlocal_bind
+echo "Script complete."

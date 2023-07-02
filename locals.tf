@@ -8,17 +8,23 @@ locals {
   # Load Virtual Machine data from inventory.yml
   control_plane_vms    = can(local.inventory["control_planes"]) ? local.inventory["control_planes"] : null
   worker_vms           = can(local.inventory["workers"]) ? local.inventory["workers"] : null
-  ext_apiserver_lb_vms = can(local.inventory["ext_apiserver_lb_vms"]) ? local.inventory["ext_apiserver_lb_vms"] : null
+  ext_apiserver_lb_vms = can(local.inventory["ext_apiserver_lb"]) ? local.inventory["ext_apiserver_lb"] : null
 
+  # Determine the amount of Virtual Machine to create
   control_plane_count    = var.create_control_plane && can(length(local.control_plane_vms) > 0) ? length(local.control_plane_vms) : 0
   worker_count           = var.create_worker && can(length(local.worker_vms) > 0) ? length(local.worker_vms) : 0
-  ext_apiserver_lb_count = var.create_ext_apiserver_lb && can(length(local.ext_apiserver_lb_vms) > 0) ? length(local.ext_apiserver_lb_vms) : 0
+  ext_apiserver_lb_count = var.create_ext_apiserver_lb && can(length(local.ext_apiserver_lb_vms) > 0) && !var.create_apiserver_lb ? length(local.ext_apiserver_lb_vms) : 0
 
+  # Load the default values from inventory.yml
   defaults         = try(local.inventory["defaults"])
   default_disks    = { for i, disk in values(local.defaults.disks) : i => disk }
   default_nics     = { for i, nic in values(local.defaults.nics) : i => nic }
   default_settings = local.defaults.settings
 
+  # Determine what address to use for the API Server Load Balancer
+  apiserver_lb_virtual_ip = var.apiserver_lb_virtual_ip
+
+  # These are all the disk settings that can be set on a Virtual Machine
   disk_settings = [
     "storage",
     "size",
@@ -44,6 +50,7 @@ locals {
     "iops_wr_max_length"
   ]
 
+  # These are all the network adapter settings that can be set on a Virtual Machine
   nic_settings = [
     "ip",
     "ip6",
@@ -61,6 +68,7 @@ locals {
     "vlan_tag"
   ]
 
+  # These are all the Virtual Machine settings that can be set on a Virtual Machine
   vm_settings = [
     "automatic_reboot",
     "balloon",
@@ -220,6 +228,7 @@ locals {
       setting => try(vm.settings[setting], try(local.default_settings[setting], null))
     }
   } : {}
+
 
   worker_target_node = local.worker_count > 0 ? [for vm in local.worker_vms : can(vm.target_node) ? vm.target_node : local.defaults.target_node] : null
   worker_template    = local.worker_count > 0 ? [for vm in local.worker_vms : can(vm.template) ? vm.template : local.defaults.template] : null

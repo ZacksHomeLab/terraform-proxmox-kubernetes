@@ -13,7 +13,6 @@ module "certs" {
   create_certificates      = var.create_certificates
   create_etcd_certificates = var.create_etcd_certificates
 
-  cluster_name      = var.cluster_name
   cluster_domain    = var.cluster_domain
   cluster_namespace = var.cluster_namespace
 
@@ -32,6 +31,7 @@ module "certs" {
   */
   internal_control_plane_ips = try([for i, vm in module.control_planes : cidrhost(var.service_network, (i + 1))], cidrhost(var.service_network, 1))
   external_control_plane_ips = module.control_planes[*].ip
+  virtual_ip                 = local.apiserver_lb_virtual_ip
 
   /*
     Some certificates require the IP Address of a Control Plane and it may not be found until AFTER it's fully provisioned.
