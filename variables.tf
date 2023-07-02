@@ -51,13 +51,6 @@ variable "cluster_namespace" {
   default     = "default"
 }
 
-/*
-variable "deploy_apiserver_lb_on_os" {
-  description = "(Bool) Whether to deploy the API Server Load balancer on the Operating System or as a Pod(s). Default is false (i.e., deploy as a Pod(s))."
-  type        = bool
-  default     = false
-}*/
-
 variable "pod_network" {
   description = "(String) Specify range of IP addresses for the pod network. If set, the control plane will automatically allocate CIDRs for every node. Default value is 10.244.0.0/16"
   type        = string
